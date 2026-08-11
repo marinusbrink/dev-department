@@ -1,0 +1,25 @@
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor / IDE state
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Claude Code local state (never commit local overrides)
+.claude/settings.local.json
+
+# Logs and scratch output
+*.log
+tmp/
+scratch/
+
+# Node tooling (docs sites, linters), if ever added
+node_modules/
+
+# Environment files — secrets never live in this repo
+.env
+.env.*
