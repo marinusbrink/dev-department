@@ -112,7 +112,7 @@ gh label create "approved-by-agent" --color C2E0C6 --description "Reviewer agent
 
 ## How the phases chain
 
-`status:intake` → intake agent → (`ready` flips to `status:design`) → architect opens design PR → **human merges it (gate 1)** → `design-merged` flips to `status:build` → build pipeline (backend → frontend → draft PR → tests → documentation draft → reviewer, max one internal fix round per stage) → zero blockers → PR leaves draft and awaits **gate 2** → human comments trigger `fix.yml` (same PR, new commits, reviewer pre-check) → human merges. If the build pipeline pauses (blocked / findings remain), it says so on the issue; re-applying `status:build` runs another pass on the same branch.
+`status:intake` → intake agent → (`ready` flips to `status:design`) → architect opens design PR → **human merges it (gate 1)** (gate rhythm: TODO(choice-2) — review as soon as ready, or at fixed moments) → `design-merged` flips to `status:build` → build pipeline (backend → frontend → draft PR → tests → documentation draft → reviewer, max one internal fix round per stage) → zero blockers → PR leaves draft and awaits **gate 2** → human comments trigger `fix.yml` (same PR, new commits, reviewer pre-check) → human merges. If the build pipeline pauses (blocked / findings remain), it says so on the issue; re-applying `status:build` runs another pass on the same branch.
 
 ## RESULT lines (what workflows branch on)
 
