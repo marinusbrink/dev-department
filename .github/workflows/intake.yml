@@ -1,0 +1,94 @@
+# Reusable: intake phase (§5). Caller triggers on issues labeled status:intake.
+name: dept-intake
+
+on:
+  workflow_call:
+    inputs:
+      issue-number:
+        description: Issue number of the PBI labeled status:intake
+        required: true
+        type: number
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+      DEPT_SYNC_TOKEN:
+        description: Only needed while dev-department is private
+        required: false
+
+concurrency:
+  group: dept-issue-${{ inputs.issue-number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  gate:
+    name: Kill switch (AGENTS_ENABLED, §8)
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ vars.AGENTS_ENABLED }}" = "false" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "AGENTS_ENABLED=false — kill switch active, exiting cleanly."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  intake:
+    name: Intake agent
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out product repo
+        uses: actions/checkout@v4
+
+      - name: Sync department (fresh from main, §3)
+        uses: actions/checkout@v4
+        with:
+          repository: marinusbrink/dev-department
+          ref: main
+          path: .dev-department
+          token: ${{ secrets.DEPT_SYNC_TOKEN || github.token }}
+
+      - name: Run intake agent
+        id: agent
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/intake.md
+          max-turns: 25
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          allowed-tools: "Read,Grep,Glob,Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh label list:*)"
+          assignment: |
+            Repository: ${{ github.repository }}
+            PBI issue number: ${{ inputs.issue-number }}
+
+      - name: Flip label on ready (idempotent — the agent also does this)
+        if: steps.agent.outputs.result == 'ready'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue edit "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --add-label "status:design" || true
+          gh issue edit "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --remove-label "status:intake" || true
+
+      - name: Questions posted — waiting on the PO
+        if: startsWith(steps.agent.outputs.result, 'questions:')
+        run: echo "Intake result '${{ steps.agent.outputs.result }}' — issue stays in status:intake until the PO answers." >> "$GITHUB_STEP_SUMMARY"
+
+  report-failure:
+    name: Failure is visible (§1, §8)
+    needs: [gate, intake]
+    if: always() && needs.gate.outputs.enabled == 'true' && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body \
+            "⚠️ **Agent workflow \`intake\` failed** — [run log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). Silent failure is forbidden (design §8); this comment is the alarm. Investigate, then re-apply \`status:intake\` to retry."

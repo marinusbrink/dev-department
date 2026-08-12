@@ -1,0 +1,71 @@
+name: run-agent
+description: >
+  Run one department agent via anthropics/claude-code-action and parse its
+  mandatory final "RESULT:" line. Fails the step if the agent ends without
+  one (contract violation — workflows must be able to branch).
+
+inputs:
+  agent-file:
+    description: Agent definition path inside the synced .dev-department checkout, e.g. agents/intake.md
+    required: true
+  assignment:
+    description: Task-specific assignment appended to the agent prompt (issue/PR numbers, branch, design doc path)
+    required: true
+  anthropic-api-key:
+    description: API key from the caller's ANTHROPIC_API_KEY secret
+    required: true
+  github-token:
+    description: Token used by the agent's gh calls and by the action
+    required: true
+  max-turns:
+    description: Conservative per-run turn cap (§8 — a stuck agent costs at most one run budget)
+    required: true
+  allowed-tools:
+    description: Optional --allowedTools value; use to technically restrict read/comment-only agents
+    required: false
+    default: ""
+
+outputs:
+  result:
+    description: >-
+      RESULT payload without the "RESULT: " prefix
+      (e.g. ready, questions:3, done, blocked, approved, blockers:2)
+    value: ${{ steps.parse.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - name: Run agent
+      id: claude
+      uses: anthropics/claude-code-action@v1
+      with:
+        anthropic_api_key: ${{ inputs.anthropic-api-key }}
+        github_token: ${{ inputs.github-token }}
+        prompt: |
+          You are one agent of the software development department. Your complete
+          system prompt is the file `.dev-department/${{ inputs.agent-file }}` in this
+          workspace: read it FIRST and follow it exactly, including its mandatory
+          final RESULT line. Files it references as conventions/, templates/ or
+          lessons/ are synced at .dev-department/ — read them from there. Never
+          commit the .dev-department/ directory itself.
+
+          Assignment:
+          ${{ inputs.assignment }}
+        claude_args: >-
+          --max-turns ${{ inputs.max-turns }}
+          ${{ inputs.allowed-tools != '' && format('--allowedTools "{0}"', inputs.allowed-tools) || '' }}
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+
+    - name: Parse RESULT line
+      id: parse
+      shell: bash
+      run: |
+        FILE="${{ steps.claude.outputs.execution_file }}"
+        LINE=$(grep -ohE 'RESULT: [a-z-]+(:[0-9]+)?' "$FILE" 2>/dev/null | tail -1 || true)
+        if [ -z "$LINE" ]; then
+          echo "::error::Agent ended without the mandatory RESULT line — treating the run as failed."
+          exit 1
+        fi
+        echo "result=${LINE#RESULT: }" >> "$GITHUB_OUTPUT"
+        echo "Agent reported: $LINE"

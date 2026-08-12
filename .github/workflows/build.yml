@@ -1,0 +1,266 @@
+# Reusable: build phase (§5). Caller triggers on issues labeled status:build.
+# Sequential pipeline on one feature branch: implementer-backend → implementer-frontend
+# → draft feature PR → test engineer → reviewer, with at most ONE internal fix round
+# after test findings and ONE after reviewer blockers (§4.6: blockers go back to the
+# implementer before the PR reaches gate 2). The PR leaves draft state only at zero
+# blockers. If findings remain, the pipeline pauses visibly and a human decides.
+name: dept-build
+
+on:
+  workflow_call:
+    inputs:
+      issue-number:
+        description: PBI issue number labeled status:build (design PR must be merged)
+        required: true
+        type: number
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+      DEPT_SYNC_TOKEN:
+        required: false
+
+concurrency:
+  group: dept-issue-${{ inputs.issue-number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  gate:
+    name: Kill switch (AGENTS_ENABLED, §8)
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ vars.AGENTS_ENABLED }}" = "false" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "AGENTS_ENABLED=false — kill switch active, exiting cleanly."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Implementers → tests → review
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out product repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync department (fresh from main, §3)
+        uses: actions/checkout@v4
+        with:
+          repository: marinusbrink/dev-department
+          ref: main
+          path: .dev-department
+          token: ${{ secrets.DEPT_SYNC_TOKEN || github.token }}
+
+      - name: Locate design doc and prepare feature branch
+        id: setup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo ".dev-department/" >> .git/info/exclude
+          ISSUE="${{ inputs.issue-number }}"
+          DESIGN=$(ls docs/designs/${ISSUE}-*.md 2>/dev/null | head -1)
+          if [ -z "$DESIGN" ]; then
+            echo "::error::No approved design doc docs/designs/${ISSUE}-*.md on main — did this issue pass gate 1?"
+            exit 1
+          fi
+          BRANCH="feature/${ISSUE}"
+          if git fetch origin "$BRANCH" 2>/dev/null; then
+            git checkout "$BRANCH"
+          else
+            git checkout -b "$BRANCH"
+            git push -u origin "$BRANCH"
+          fi
+          echo "design=$DESIGN" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Backend implementer
+        id: be
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/implementer-backend.md
+          max-turns: 75
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          assignment: |
+            Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}
+            Approved design doc: ${{ steps.setup.outputs.design }}
+            Branch (already checked out): ${{ steps.setup.outputs.branch }}
+            Implement the backend work for every domain in the design's Domain impact
+            section, one domain at a time with a commit per domain, honoring your
+            domain-boundary rules within each. If a draft feature PR for this branch
+            has unresolved blocker/finding comments, addressing them is part of this
+            assignment. If the design assigns no backend work, do nothing and end
+            with RESULT: done. Push your commits to the branch.
+
+      - name: Frontend implementer
+        id: fe
+        if: steps.be.outputs.result == 'done'
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/implementer-frontend.md
+          max-turns: 60
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          assignment: |
+            Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}
+            Approved design doc: ${{ steps.setup.outputs.design }}
+            Branch (already checked out): ${{ steps.setup.outputs.branch }}
+            Implement the UI work per the design's UI design section. If a draft
+            feature PR for this branch has unresolved blocker/finding comments in
+            your area, addressing them is part of this assignment. If the design
+            assigns no frontend work, do nothing and end with RESULT: done.
+            Push your commits to the branch.
+
+      - name: Open draft feature PR
+        id: draftpr
+        if: steps.fe.outputs.result == 'done'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH="${{ steps.setup.outputs.branch }}"
+          DESIGN="${{ steps.setup.outputs.design }}"
+          ISSUE="${{ inputs.issue-number }}"
+          git push origin "$BRANCH" || true
+          PR=$(gh pr list --repo "${{ github.repository }}" --head "$BRANCH" --state open --json number -q '.[0].number' || true)
+          if [ -z "$PR" ]; then
+            FEATURE=$(head -1 "$DESIGN" | sed -e 's/^# *//' -e 's/^Design: *//')
+            PR=$(gh pr create --repo "${{ github.repository }}" --draft --head "$BRANCH" \
+              --title "Feature: ${FEATURE} (#${ISSUE})" \
+              --body "Implements #${ISSUE} per \`${DESIGN}\`. Draft until the reviewer agent reports zero blockers (§4.6)." \
+              | grep -oE '[0-9]+$')
+          fi
+          echo "pr=$PR" >> "$GITHUB_OUTPUT"
+
+      - name: Test engineer
+        id: te
+        if: steps.fe.outputs.result == 'done'
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/test-engineer.md
+          max-turns: 60
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          assignment: |
+            Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}
+            Approved design doc: ${{ steps.setup.outputs.design }}
+            Branch (already checked out): ${{ steps.setup.outputs.branch }} — draft PR #${{ steps.draftpr.outputs.pr }}
+            Implement and run the test work per the design's test risk analysis.
+            Post bug findings on the draft PR. Push your test commits to the branch.
+
+      - name: Fix round after test findings
+        id: fixtests
+        if: startsWith(steps.te.outputs.result, 'findings:')
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/implementer-backend.md
+          max-turns: 60
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          assignment: |
+            Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}, branch ${{ steps.setup.outputs.branch }}
+            The test engineer posted bug findings on draft PR #${{ steps.draftpr.outputs.pr }}.
+            Address every finding by fixing the application code (frontend fixes follow
+            .dev-department/agents/implementer-frontend.md discipline). Never edit or
+            weaken test files. Push fix commits. End with RESULT: done or RESULT: blocked.
+
+      - name: Test engineer — verify fixes
+        id: te2
+        if: steps.fixtests.outputs.result == 'done'
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/test-engineer.md
+          max-turns: 50
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          assignment: |
+            Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}, branch ${{ steps.setup.outputs.branch }}, draft PR #${{ steps.draftpr.outputs.pr }}
+            Re-run: verify your earlier findings are resolved and the suite is green.
+
+      - name: Reviewer agent
+        id: review
+        if: steps.te.outputs.result == 'passed' || steps.te2.outputs.result == 'passed'
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/reviewer.md
+          max-turns: 40
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          allowed-tools: "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh issue view:*)"
+          assignment: |
+            Repository: ${{ github.repository }}
+            Review draft PR #${{ steps.draftpr.outputs.pr }} (issue #${{ inputs.issue-number }},
+            design doc ${{ steps.setup.outputs.design }}).
+
+      - name: Fix round after reviewer blockers
+        id: fixblockers
+        if: startsWith(steps.review.outputs.result, 'blockers:')
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/implementer-backend.md
+          max-turns: 60
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          assignment: |
+            Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}, branch ${{ steps.setup.outputs.branch }}
+            The reviewer posted [blocker] findings on draft PR #${{ steps.draftpr.outputs.pr }}.
+            Address every blocker (frontend fixes follow .dev-department/agents/implementer-frontend.md
+            discipline; a blocker you believe is wrong is a comment reply, never a silent skip).
+            Push fix commits. End with RESULT: done or RESULT: blocked.
+
+      - name: Reviewer agent — re-review
+        id: review2
+        if: steps.fixblockers.outputs.result == 'done'
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/reviewer.md
+          max-turns: 40
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          allowed-tools: "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh issue view:*)"
+          assignment: |
+            Repository: ${{ github.repository }}
+            Re-review draft PR #${{ steps.draftpr.outputs.pr }} (issue #${{ inputs.issue-number }},
+            design doc ${{ steps.setup.outputs.design }}) after the blocker fix round.
+
+      - name: Zero blockers → feature PR ready for gate 2
+        if: steps.review.outputs.result == 'approved' || steps.review2.outputs.result == 'approved'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr ready "${{ steps.draftpr.outputs.pr }}" --repo "${{ github.repository }}"
+          gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body \
+            "✅ Feature PR #${{ steps.draftpr.outputs.pr }} passed internal review with zero blockers and awaits gate 2."
+
+      - name: Pipeline paused — report state (no silent stops)
+        if: success() && steps.review.outputs.result != 'approved' && steps.review2.outputs.result != 'approved'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body \
+            "⏸️ Build pipeline paused without a gate-2-ready PR (issue #${{ inputs.issue-number }}).
+          Phase results: backend=\`${{ steps.be.outputs.result }}\` frontend=\`${{ steps.fe.outputs.result }}\` tests=\`${{ steps.te.outputs.result }}\` tests-after-fix=\`${{ steps.te2.outputs.result }}\` review=\`${{ steps.review.outputs.result }}\` review-after-fix=\`${{ steps.review2.outputs.result }}\`.
+          The responsible agent reported details in comments here or on the draft PR. After resolving, re-apply \`status:build\` for another pass on the same branch."
+
+  report-failure:
+    name: Failure is visible (§1, §8)
+    needs: [gate, build]
+    if: always() && needs.gate.outputs.enabled == 'true' && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body \
+            "⚠️ **Agent workflow \`build\` failed** — [run log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). Silent failure is forbidden (design §8); this comment is the alarm. Investigate, then re-apply \`status:build\` to retry (the feature branch is preserved)."

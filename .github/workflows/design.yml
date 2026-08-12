@@ -1,0 +1,135 @@
+# Reusable: design phase (§5). Two modes:
+#   mode: architect      — caller triggers on issues labeled status:design; runs the architect agent, which opens the design PR (gate 1).
+#   mode: design-merged  — caller triggers on merged design PRs; flips the issue to status:build. Merging is the human approval act — agents never merge (§8).
+name: dept-design
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: architect | design-merged
+        required: false
+        type: string
+        default: architect
+      issue-number:
+        description: PBI issue number (required for architect mode; parsed from the PR title in design-merged mode if 0)
+        required: false
+        type: number
+        default: 0
+      pr-number:
+        description: Design PR number (design-merged mode)
+        required: false
+        type: number
+        default: 0
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+      DEPT_SYNC_TOKEN:
+        required: false
+
+concurrency:
+  group: dept-design-${{ inputs.mode }}-${{ inputs.issue-number }}-${{ inputs.pr-number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  gate:
+    name: Kill switch (AGENTS_ENABLED, §8)
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ vars.AGENTS_ENABLED }}" = "false" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "AGENTS_ENABLED=false — kill switch active, exiting cleanly."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  architect:
+    name: Architect agent
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true' && inputs.mode == 'architect'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out product repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync department (fresh from main, §3)
+        uses: actions/checkout@v4
+        with:
+          repository: marinusbrink/dev-department
+          ref: main
+          path: .dev-department
+          token: ${{ secrets.DEPT_SYNC_TOKEN || github.token }}
+
+      - name: Prepare git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo ".dev-department/" >> .git/info/exclude
+
+      - name: Run architect agent
+        id: agent
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/architect.md
+          max-turns: 50
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          assignment: |
+            Repository: ${{ github.repository }}
+            PBI issue number: ${{ inputs.issue-number }}
+            Work on a branch named design/${{ inputs.issue-number }}, commit the design doc there,
+            push it, and open the design PR titled "Design: <feature> (#${{ inputs.issue-number }})"
+            exactly as your definition specifies.
+
+      - name: Summary
+        run: echo "Architect result '${{ steps.agent.outputs.result }}'." >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    name: Gate 1 passed → status:build
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true' && inputs.mode == 'design-merged'
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ISSUE="${{ inputs.issue-number }}"
+          if [ "$ISSUE" = "0" ]; then
+            TITLE=$(gh pr view "${{ inputs.pr-number }}" --repo "${{ github.repository }}" --json title -q .title)
+            ISSUE=$(printf '%s' "$TITLE" | grep -oE '#[0-9]+' | head -1 | tr -d '#' || true)
+          fi
+          if [ -z "$ISSUE" ] || [ "$ISSUE" = "0" ]; then
+            echo "::error::Cannot determine the PBI issue number from design PR #${{ inputs.pr-number }} — expected '(#<issue>)' in the PR title."
+            exit 1
+          fi
+          gh issue edit "$ISSUE" --repo "${{ github.repository }}" --add-label "status:build"
+          gh issue edit "$ISSUE" --repo "${{ github.repository }}" --remove-label "status:design" || true
+          gh issue comment "$ISSUE" --repo "${{ github.repository }}" --body \
+            "✅ Design approved at gate 1 (design PR #${{ inputs.pr-number }} merged) → \`status:build\`."
+
+  report-failure:
+    name: Failure is visible (§1, §8)
+    needs: [gate, architect, promote]
+    if: always() && needs.gate.outputs.enabled == 'true' && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BODY="⚠️ **Agent workflow \`design\` (mode: ${{ inputs.mode }}) failed** — [run log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). Silent failure is forbidden (design §8); this comment is the alarm."
+          if [ "${{ inputs.issue-number }}" != "0" ]; then
+            gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body "$BODY"
+          else
+            gh pr comment "${{ inputs.pr-number }}" --repo "${{ github.repository }}" --body "$BODY"
+          fi

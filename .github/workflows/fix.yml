@@ -1,0 +1,119 @@
+# Reusable: gate-2 fix loop (§5: "same PR, new commits" — review history is learning
+# data). Caller triggers on human review activity on agent-authored PRs. Pushes fix
+# commits to the same branch, then re-runs the reviewer so gate 2 never sees repeat
+# mistakes. A decline due to a design flaw is NOT this workflow: that closes the PR
+# and returns the issue to status:design (human action).
+name: dept-fix
+
+on:
+  workflow_call:
+    inputs:
+      pr-number:
+        description: Feature PR that received human review comments
+        required: true
+        type: number
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+      DEPT_SYNC_TOKEN:
+        required: false
+
+concurrency:
+  group: dept-pr-${{ inputs.pr-number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  gate:
+    name: Kill switch (AGENTS_ENABLED, §8)
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ vars.AGENTS_ENABLED }}" = "false" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "AGENTS_ENABLED=false — kill switch active, exiting cleanly."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  fix:
+    name: Address human review comments
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out product repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync department (fresh from main, §3)
+        uses: actions/checkout@v4
+        with:
+          repository: marinusbrink/dev-department
+          ref: main
+          path: .dev-department
+          token: ${{ secrets.DEPT_SYNC_TOKEN || github.token }}
+
+      - name: Check out the PR branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo ".dev-department/" >> .git/info/exclude
+          gh pr checkout "${{ inputs.pr-number }}" --repo "${{ github.repository }}"
+
+      - name: Fix agent (implementer discipline)
+        id: fixer
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/implementer-backend.md
+          max-turns: 60
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          assignment: |
+            Repository: ${{ github.repository }} — PR #${{ inputs.pr-number }} (branch already checked out).
+            Human review comments arrived at gate 2. Read every review comment and
+            thread on the PR; identify the human comments not yet addressed by a
+            later commit or reply. Address each one: a fix commit pushed to this
+            branch, or — only where you are convinced the comment rests on a
+            misunderstanding — a polite reply explaining why, with the design doc
+            or convention as backing. Never skip one silently. Frontend changes
+            follow .dev-department/agents/implementer-frontend.md discipline; test
+            changes are off-limits per your definition. Never force-push, never
+            rebase — the review history is learning data (§5).
+            End with RESULT: done or RESULT: blocked.
+
+      - name: Reviewer agent — pre-check before gate 2 sees it again
+        if: steps.fixer.outputs.result == 'done'
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/reviewer.md
+          max-turns: 40
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          allowed-tools: "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh issue view:*)"
+          assignment: |
+            Repository: ${{ github.repository }}
+            Re-review PR #${{ inputs.pr-number }} after the fix commits: full checklist,
+            with extra attention to the areas the human comments touched.
+
+  report-failure:
+    name: Failure is visible (§1, §8)
+    needs: [gate, fix]
+    if: always() && needs.gate.outputs.enabled == 'true' && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ inputs.pr-number }}" --repo "${{ github.repository }}" --body \
+            "⚠️ **Agent workflow \`fix\` failed** — [run log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). Silent failure is forbidden (design §8); this comment is the alarm. The review comments are NOT yet addressed."
