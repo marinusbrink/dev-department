@@ -28,6 +28,7 @@ Coverage is per risk class and mandatory — a critical-class part with only uni
 - **Tenant isolation tests** for every feature that reads or writes data: demonstrably no access to another tenant's data — including via list endpoints and exports, the two classic leaks.
 - **Migration test**: every migration in the PR runs in CI against a copy of a production-like schema *with data*, and the old application version must keep working against the migrated schema (the expand guarantee of constitution rule 2).
 - **Idempotency tests** for every job and webhook the feature adds or touches: run it twice, assert one effect — one invoice, one mail, one order.
+- **Performance test at volume ×5** for every part with risk class **critical or high** (§6: performance in the pipeline, not after it): take the expected volume from the design doc's Cost & SLO impact section, multiply it by five, and assert the applicable budget rows from `conventions/performance-budgets.md`. A design doc that states no expected volume is a finding to report back on the issue (missing design input) — never a number you guess.
 
 ## The regression suite
 
