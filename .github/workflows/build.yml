@@ -1,6 +1,6 @@
 # Reusable: build phase (§5). Caller triggers on issues labeled status:build.
 # Sequential pipeline on one feature branch: implementer-backend → implementer-frontend
-# → draft feature PR → test engineer → reviewer, with at most ONE internal fix round
+# → draft feature PR → test engineer → documentation draft → reviewer, with at most ONE internal fix round
 # after test findings and ONE after reviewer blockers (§4.6: blockers go back to the
 # implementer before the PR reaches gate 2). The PR leaves draft state only at zero
 # blockers. If findings remain, the pipeline pauses visibly and a human decides.
@@ -188,9 +188,30 @@ jobs:
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}, branch ${{ steps.setup.outputs.branch }}, draft PR #${{ steps.draftpr.outputs.pr }}
             Re-run: verify your earlier findings are resolved and the suite is green.
 
+      - name: Documentation draft (§4.10, §7.1 — the feature PR must contain its docs change)
+        id: docs
+        if: steps.te.outputs.result == 'passed' || steps.te2.outputs.result == 'passed'
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          agent-file: agents/documentation.md
+          max-turns: 40
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          assignment: |
+            Run mode: draft.
+            Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}
+            Approved design doc: ${{ steps.setup.outputs.design }}
+            Branch (already checked out): ${{ steps.setup.outputs.branch }} — draft PR #${{ steps.draftpr.outputs.pr }}
+            From the PBI and the design doc, write the draft manual page for this
+            feature in docs/manual/ (user language, placeholder images for the
+            screenshot workflow), commit and push it to the branch, so the feature
+            PR contains the docs change the reviewer requires (§5). If the design
+            changes no user-visible behavior, post a one-line comment on the draft
+            PR saying so instead of writing a page, and still end with RESULT: drafted.
+
       - name: Reviewer agent
         id: review
-        if: steps.te.outputs.result == 'passed' || steps.te2.outputs.result == 'passed'
+        if: steps.docs.outputs.result == 'drafted'
         uses: ./.dev-department/.github/actions/run-agent
         with:
           agent-file: agents/reviewer.md
@@ -250,7 +271,7 @@ jobs:
         run: |
           gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body \
             "⏸️ Build pipeline paused without a gate-2-ready PR (issue #${{ inputs.issue-number }}).
-          Phase results: backend=\`${{ steps.be.outputs.result }}\` frontend=\`${{ steps.fe.outputs.result }}\` tests=\`${{ steps.te.outputs.result }}\` tests-after-fix=\`${{ steps.te2.outputs.result }}\` review=\`${{ steps.review.outputs.result }}\` review-after-fix=\`${{ steps.review2.outputs.result }}\`.
+          Phase results: backend=\`${{ steps.be.outputs.result }}\` frontend=\`${{ steps.fe.outputs.result }}\` tests=\`${{ steps.te.outputs.result }}\` tests-after-fix=\`${{ steps.te2.outputs.result }}\` docs=\`${{ steps.docs.outputs.result }}\` review=\`${{ steps.review.outputs.result }}\` review-after-fix=\`${{ steps.review2.outputs.result }}\`.
           The responsible agent reported details in comments here or on the draft PR. After resolving, re-apply \`status:build\` for another pass on the same branch."
 
   report-failure:
