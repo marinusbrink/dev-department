@@ -14,6 +14,7 @@ How the department's spend is bounded and what to do when the bound is hit (desi
 - **Per agent**: create one API key per workflow (intake, design, build, fix) in the workspace and set them as separate secrets when per-agent attribution matters — the console then breaks usage down per key. Until then, approximate per-agent cost from the Actions side: run counts and durations per workflow in each repo's Actions tab, and the daily digest's 24h run summary.
 - **Anomaly signal**: the digest shows run counts per repo per day. A jump in runs without a jump in PBIs is the early warning — look before the cap does it for you.
 - **Digest consumption line**: set the `ANTHROPIC_ADMIN_KEY` secret on dev-department (an organization Admin API key, `sk-ant-admin...` — a different key type than the workspace API key) and optionally the `ANTHROPIC_WORKSPACE_ID` variable to scope to the dev-department workspace; the daily digest then shows month-to-date spend from the Admin cost-report API. Without the secret it shows the cap and a setup pointer instead.
+  **Decision 2026-08-12: deliberately not activated.** Anthropic Admin API keys require a *team* organization; this Console account is an *individual* organization, and converting it for one convenience line is not worth it. The workspace spend cap is the actual guardrail. Revisit if the org ever converts to team — the code path is already in `digest.yml` and activates the moment `ANTHROPIC_ADMIN_KEY` is set.
 
 ## When the cap is hit mid-month
 

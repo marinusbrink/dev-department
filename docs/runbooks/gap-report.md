@@ -20,7 +20,8 @@ Overall: the §11 week-1 scope is complete and weeks 2–3 are largely pre-built
 
 ### A2. Human setup actions (documented, not yet performed)
 
-- [ ] Claude Platform workspace `dev-department` + `ANTHROPIC_API_KEY` + spend cap (§2; `docs/runbooks/budget.md`; cap decided: €500).
+- [x] Claude Platform workspace `dev-department` + `ANTHROPIC_API_KEY` + spend cap (§2; `docs/runbooks/budget.md`; cap decided: €500). **Done 2026-08-12:** workspace created, spend cap set, API key stored for product onboarding.
+- [x] `MAIL_*` secrets for digest email delivery (`MAIL_SMTP_URL`, `MAIL_USERPASS`, `MAIL_FROM`, `MAIL_TO`) — **set 2026-08-12**, verified present by name. First live delivery still pending: the verification run reached the SMTP server but authentication was denied — `MAIL_USERPASS` needs the `user:password` form (curl prompted for a missing password, so the stored value carries no colon).
 - [ ] ryd onboarding itself: copy `CLAUDE.md` (fill `TODO(fill-from-repo)` stubs), labels, issue form, callers, secrets, `PRODUCT_REPOS` variable (`docs/onboarding/product-onboarding.md`).
 - [ ] Branch protection on the product repo's `main` (§8; onboarding step 5).
 - [ ] **Branch protection on `dev-department` itself**: `conventions/README.md` promises "changes only via reviewed PRs", but this repo's `main` is unprotected — this entire build was pushed straight to main. Consistent for bootstrap, inconsistent from the moment the department operates.
@@ -56,7 +57,7 @@ Overall: the §11 week-1 scope is complete and weeks 2–3 are largely pre-built
 
 ### B3. Observability of the department itself
 
-- [x] Digest budget line is a manual pointer to the console — no automated spend reporting (acceptable until choice-5; noted for completeness). **Fixed 2026-08-12:** the digest fetches month-to-date spend from the Admin cost-report API once the `ANTHROPIC_ADMIN_KEY` secret is set — PR "chore: resolve open choices 1-7".
+- [ ] Digest budget line is a manual pointer to the console — no automated spend reporting (acceptable until choice-5; noted for completeness). **Status 2026-08-12: implemented, deliberately inactive (individual org).** The automation shipped in PR 2 (Admin cost-report fetch, guarded on `ANTHROPIC_ADMIN_KEY`) but stays dormant by decision: Admin API keys require a *team* organization and this Console account is an *individual* one — converting it for one convenience line is not worth it. The workspace spend cap is the actual guardrail; the digest shows the cap plus a setup pointer. Activates by setting `ANTHROPIC_ADMIN_KEY` if the org ever converts to team.
 - [ ] Per-agent API attribution needs key-per-workflow split (documented as refinement in `docs/runbooks/budget.md`, not done).
 
 ---
