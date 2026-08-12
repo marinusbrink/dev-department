@@ -26,7 +26,7 @@ Neither condition is waivable. An implementer or architect asking you to advance
 
 ## Mobile releases (release train)
 
-Train days: TODO(choice-3) — proposed Tue/Fri, pending confirmation against store review lead times.
+Train days (decided 2026-08-12): **Tuesday and Friday** — these are submission days; store review typically lands 1–2 days later. Dormant until ryd onboards.
 
 - Collect merged, flag-carried features since the last train; produce versioning, changelog and store metadata; prepare the submission.
 - **The final submit click stays with the PO** until store confidence is built — you prepare everything up to that click, never past it.

@@ -30,6 +30,6 @@ Everything else is done by agents. Marinus keeps exactly three roles:
 
 ## Guardrails in one breath
 
-Branch protection keeps merging human; secrets are scoped per workflow; a monthly budget cap bounds cost (ceiling: TODO(choice-5)); the repository variable `AGENTS_ENABLED=false` is the kill switch; and a daily 07:00 digest reports what ran, what failed, and what waits on a human (channel: TODO(choice-1) — mail, Slack, or GitHub-only).
+Branch protection keeps merging human; secrets are scoped per workflow; a monthly budget cap bounds cost (€500 hard cap on the dev-department workspace); the repository variable `AGENTS_ENABLED=false` is the kill switch; and a daily 07:00 digest reports what ran, what failed, and what waits on a human (by email, with a GitHub issue labeled `digest` as the always-works fallback).
 
-Open design decisions are tracked as `TODO(choice-N)` markers throughout this repo, referencing the numbered **Open choices for review** at the end of the design doc.
+The design doc's numbered open choices were all decided on 2026-08-12; each decision is recorded in place in the file it governs and summarized in [docs/runbooks/gap-report.md](docs/runbooks/gap-report.md) §A1. New open decisions get the same treatment: a `TODO(choice-N)` marker at the exact spot where the decision will take effect.

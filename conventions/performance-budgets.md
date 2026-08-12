@@ -2,7 +2,7 @@
 
 These budgets (design §6, layer 0) are defaults for review: the architect states which budgets a feature touches, the test engineer tests against them, the reviewer blocks on violations, and traffic-splitting promotion measures against them in production.
 
-> **TODO(choice-7):** every numeric value in the table below is a proposal pending confirmation (open choice 7 in the design doc) — especially the 99.9% availability target (≈ 43 min/month), where tighter is more expensive in both infra and frozen releases. Until confirmed, treat the numbers as the review default, not as settled SLOs.
+> **Confirmed 2026-08-12 (choice 7):** every number in the table below — including the 99.9% availability target (≈ 43 min/month) — is the binding review default. The mobile rows are defined but dormant until ryd onboards. Changing a number is a PO edit to this file via a reviewed PR, never an agent decision.
 
 | Interaction class | Requirement | Enforcement |
 |---|---|---|

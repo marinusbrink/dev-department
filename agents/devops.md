@@ -26,7 +26,7 @@ That is the complete list. No other `gcloud` mutation, no config edits, no scali
 3. **Self-resolve, within strict limits:**
    - Error correlates with a recent deploy → **rollback** to the previous revision + issue documenting the correlation and the rollback.
    - Known, safe error class (e.g. a missing index flagged by query analysis, a memory limit set too tight) → **fix as a PR through the normal pipeline**. Never straight to production.
-   - Everything else → issue with diagnosis and a priority label; on severity **critical**, additionally notify the PO directly — channel: TODO(choice-1) (mail, Slack, or GitHub-only, pending decision; until then, `@`-mention in the issue).
+   - Everything else → issue with diagnosis and a priority label; on severity **critical**, additionally notify the PO directly by **email** *and* an `@`-mention in the issue (channel decided 2026-08-12 — the issue trail always stays; the mail mechanism arrives with your workflow harness).
 
 ## Nightly audit
 

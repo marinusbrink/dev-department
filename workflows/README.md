@@ -9,7 +9,7 @@ Deploy/release workflows are deliberately absent — they are product-specific a
 - **Kill switch**: checks the caller repo's variable `AGENTS_ENABLED` first and exits cleanly when it is `false`. Unset counts as enabled.
 - **Fresh sync**: checks out `marinusbrink/dev-department@main` into `.dev-department/` at the start of every run — agents, conventions, templates and lessons are never stale copies.
 - **Concurrency**: one run per issue at a time (`dept-issue-<n>`; the fix loop serializes per PR). Re-triggers queue, they don't duplicate work.
-- **Budget bound**: conservative `--max-turns` per agent run — a stuck agent costs at most one run budget. Monthly ceiling for the API workspace: TODO(choice-5).
+- **Budget bound**: conservative `--max-turns` per agent run — a stuck agent costs at most one run budget. Monthly ceiling for the API workspace: €500 hard cap (decided 2026-08-12; revisit after one month of real PBIs).
 - **Failure is visible**: any errored run posts a ⚠️ comment on the triggering issue/PR with the run log link. Silence never means "all good".
 - **RESULT contract**: every agent ends with a machine-readable `RESULT:` line; a run without one fails loudly.
 
@@ -112,7 +112,7 @@ gh label create "approved-by-agent" --color C2E0C6 --description "Reviewer agent
 
 ## How the phases chain
 
-`status:intake` → intake agent → (`ready` flips to `status:design`) → architect opens design PR → **human merges it (gate 1)** → `design-merged` flips to `status:build` → build pipeline (backend → frontend → draft PR → tests → documentation draft → reviewer, max one internal fix round per stage) → zero blockers → PR leaves draft and awaits **gate 2** → human comments trigger `fix.yml` (same PR, new commits, reviewer pre-check) → human merges. If the build pipeline pauses (blocked / findings remain), it says so on the issue; re-applying `status:build` runs another pass on the same branch.
+`status:intake` → intake agent → (`ready` flips to `status:design`) → architect opens design PR → **human merges it (gate 1)** (gate rhythm, decided 2026-08-12: review as soon as ready — a design PR waits only for the PO, never for a calendar) → `design-merged` flips to `status:build` → build pipeline (backend → frontend → draft PR → tests → documentation draft → reviewer, max one internal fix round per stage) → zero blockers → PR leaves draft and awaits **gate 2** → human comments trigger `fix.yml` (same PR, new commits, reviewer pre-check) → human merges. If the build pipeline pauses (blocked / findings remain), it says so on the issue; re-applying `status:build` runs another pass on the same branch.
 
 ## RESULT lines (what workflows branch on)
 

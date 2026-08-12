@@ -3,9 +3,11 @@
 # keeps reporting even when AGENTS_ENABLED=false — it then shows the kill-switch
 # state. Silence never means "all good" but "digest broken" (§8).
 #
-# Channel: TODO(choice-1) — mail, Slack, or GitHub-only. Until decided, the
-# fallback that always works: a GitHub issue in this repo with the `digest` label
-# (previous digest issues are auto-closed, so exactly one stays open).
+# Channel (choice 1, decided 2026-08-12): email. The digest is mailed daily by the
+# guarded email step below — set secrets MAIL_SMTP_URL (e.g. smtps://smtp.example.com:465),
+# MAIL_USERPASS (user:password), MAIL_FROM and MAIL_TO to activate; until then the
+# step skips cleanly. The GitHub issue with the `digest` label stays as the
+# always-works fallback (previous digest issues are auto-closed, exactly one open).
 #
 # Product repos are read from the repo variable PRODUCT_REPOS (space-separated
 # "owner/repo" list) or the workflow_dispatch input. Private product repos need
@@ -47,12 +49,15 @@ jobs:
           fi
 
       - name: Collect and publish digest
+        id: publish
         if: steps.tzgate.outputs.go == 'true'
         env:
           GH_TOKEN: ${{ secrets.DIGEST_TOKEN || github.token }}
           REPOS_INPUT: ${{ inputs.repos }}
           REPOS_VAR: ${{ vars.PRODUCT_REPOS }}
           AGENTS_ENABLED_STATE: ${{ vars.AGENTS_ENABLED }}
+          ANTHROPIC_ADMIN_KEY: ${{ secrets.ANTHROPIC_ADMIN_KEY }}
+          ANTHROPIC_WORKSPACE_ID: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
         run: |
           set -uo pipefail
           TODAY=$(TZ=Europe/Amsterdam date +%F)
@@ -106,7 +111,23 @@ jobs:
 
           {
             echo "---"
-            echo "**Budget:** monthly cap and per-agent consumption live in the Claude Console workspace \`dev-department\` (cap: TODO(choice-5)) — not yet automated here; see docs/runbooks/budget.md."
+            if [ -n "${ANTHROPIC_ADMIN_KEY:-}" ]; then
+              MONTH_START=$(date -u +%Y-%m-01T00:00:00Z)
+              NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+              CENTS=$(curl -sf "https://api.anthropic.com/v1/organizations/cost_report?starting_at=${MONTH_START}&ending_at=${NOW}&limit=31&group_by%5B%5D=workspace_id" \
+                  -H "anthropic-version: 2023-06-01" -H "x-api-key: ${ANTHROPIC_ADMIN_KEY}" \
+                | jq -r --arg ws "${ANTHROPIC_WORKSPACE_ID:-}" \
+                    '[.data[]?.results[]? | select($ws == "" or .workspace_id == $ws) | (.amount | tonumber)] | add // 0' \
+                || true)
+              if [ -n "$CENTS" ]; then
+                SPEND=$(awk "BEGIN{printf \"%.2f\", ${CENTS}/100}")
+                echo "**Budget:** \$${SPEND} consumed this month (Admin API cost report) against the €500 hard cap on workspace \`dev-department\` — see docs/runbooks/budget.md."
+              else
+                echo "**Budget:** €500/month hard cap — cost-report fetch failed this run (see the run log); see docs/runbooks/budget.md."
+              fi
+            else
+              echo "**Budget:** €500/month hard cap on the Claude Console workspace \`dev-department\`. Set the ANTHROPIC_ADMIN_KEY secret (plus optional ANTHROPIC_WORKSPACE_ID variable) to show consumption here — see docs/runbooks/budget.md."
+            fi
           } >> "$BODY"
 
           URL=$(gh issue create --repo "${{ github.repository }}" \
@@ -119,3 +140,34 @@ jobs:
               gh issue close "$N" --repo "${{ github.repository }}" --comment "Superseded by #${NEW}."
             fi
           done
+
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "date=$TODAY" >> "$GITHUB_OUTPUT"
+
+      - name: Email the digest (choice 1 — skips cleanly until MAIL_* secrets are set)
+        if: steps.tzgate.outputs.go == 'true'
+        env:
+          MAIL_SMTP_URL: ${{ secrets.MAIL_SMTP_URL }}
+          MAIL_USERPASS: ${{ secrets.MAIL_USERPASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          DIGEST_URL: ${{ steps.publish.outputs.url }}
+          DIGEST_DATE: ${{ steps.publish.outputs.date }}
+        run: |
+          if [ -z "${MAIL_SMTP_URL:-}" ]; then
+            echo "Mail not configured (MAIL_SMTP_URL secret missing) — GitHub issue fallback only."
+            exit 0
+          fi
+          {
+            echo "From: ${MAIL_FROM}"
+            echo "To: ${MAIL_TO}"
+            echo "Subject: [dev-department] Daily digest — ${DIGEST_DATE}"
+            echo "Content-Type: text/plain; charset=utf-8"
+            echo
+            echo "Digest issue: ${DIGEST_URL}"
+            echo
+            cat digest.md
+          } > mail.txt
+          curl -sS --ssl-reqd --url "$MAIL_SMTP_URL" --user "$MAIL_USERPASS" \
+            --mail-from "$MAIL_FROM" --mail-rcpt "$MAIL_TO" --upload-file mail.txt
+          echo "Digest mailed to ${MAIL_TO}."
