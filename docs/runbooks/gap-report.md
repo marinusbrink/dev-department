@@ -21,7 +21,7 @@ Overall: the §11 week-1 scope is complete and weeks 2–3 are largely pre-built
 ### A2. Human setup actions (documented, not yet performed)
 
 - [x] Claude Platform workspace `dev-department` + `ANTHROPIC_API_KEY` + spend cap (§2; `docs/runbooks/budget.md`; cap decided: €500). **Done 2026-08-12:** workspace created, spend cap set, API key stored for product onboarding.
-- [x] `MAIL_*` secrets for digest email delivery (`MAIL_SMTP_URL`, `MAIL_USERPASS`, `MAIL_FROM`, `MAIL_TO`) — **set 2026-08-12**, verified present by name. First live delivery still pending: the verification run reached the SMTP server but authentication was denied — `MAIL_USERPASS` needs the `user:password` form (curl prompted for a missing password, so the stored value carries no colon).
+- [x] `MAIL_*` secrets for digest email delivery (`MAIL_SMTP_URL`, `MAIL_USERPASS`, `MAIL_FROM`, `MAIL_TO`) — set 2026-08-12; the first four digest runs failed SMTP auth (curl exit 67) during the `MAIL_USERPASS` setup iterations until the `user:password` form was stored. **First delivery confirmed 2026-08-12** — the digest run logs "Digest mailed", receipt confirmed by the PO.
 - [ ] ryd onboarding itself: copy `CLAUDE.md` (fill `TODO(fill-from-repo)` stubs), labels, issue form, callers, secrets, `PRODUCT_REPOS` variable (`docs/onboarding/product-onboarding.md`).
 - [ ] Branch protection on the product repo's `main` (§8; onboarding step 5).
 - [ ] **Branch protection on `dev-department` itself**: `conventions/README.md` promises "changes only via reviewed PRs", but this repo's `main` is unprotected — this entire build was pushed straight to main. Consistent for bootstrap, inconsistent from the moment the department operates.
