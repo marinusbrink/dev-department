@@ -1,0 +1,23 @@
+# Phase 3 caller (§11, after the first approved designs): copy to
+# .github/workflows/dept-build.yml in the product repo. Start with PBIs in one
+# low-risk domain (ryd: Master Data) — serialize per domain (§10).
+name: department — build
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  build:
+    if: github.event.label.name == 'status:build'
+    uses: marinusbrink/dev-department/.github/workflows/build.yml@main
+    with:
+      issue-number: ${{ github.event.issue.number }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}   # only while dev-department is private

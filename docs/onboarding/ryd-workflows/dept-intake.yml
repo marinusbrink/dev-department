@@ -1,0 +1,20 @@
+# Phase 1 caller (§11 week 1): copy to .github/workflows/dept-intake.yml in the product repo.
+name: department — intake
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  intake:
+    if: github.event.label.name == 'status:intake'
+    uses: marinusbrink/dev-department/.github/workflows/intake.yml@main
+    with:
+      issue-number: ${{ github.event.issue.number }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}   # only while dev-department is private

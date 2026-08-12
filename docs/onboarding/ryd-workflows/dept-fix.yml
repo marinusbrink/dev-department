@@ -1,0 +1,26 @@
+# Phase 3 caller (§11, together with dept-build.yml): copy to
+# .github/workflows/dept-fix.yml in the product repo. Gate-2 comments from a human
+# on an agent feature PR → fix commits on the same PR (§5).
+name: department — fix
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  fix:
+    if: >-
+      github.event.review.state != 'approved' &&
+      !endsWith(github.actor, '[bot]') &&
+      startsWith(github.event.pull_request.title, 'Feature:')
+    uses: marinusbrink/dev-department/.github/workflows/fix.yml@main
+    with:
+      pr-number: ${{ github.event.pull_request.number }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}   # only while dev-department is private
