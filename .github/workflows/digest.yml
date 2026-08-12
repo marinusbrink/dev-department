@@ -1,0 +1,121 @@
+# Daily digest (§8): what ran, what failed, what waits on the human, budget status.
+# Runs at 07:00 Europe/Amsterdam. Makes NO model calls (pure gh scripting), so it
+# keeps reporting even when AGENTS_ENABLED=false — it then shows the kill-switch
+# state. Silence never means "all good" but "digest broken" (§8).
+#
+# Channel: TODO(choice-1) — mail, Slack, or GitHub-only. Until decided, the
+# fallback that always works: a GitHub issue in this repo with the `digest` label
+# (previous digest issues are auto-closed, so exactly one stays open).
+#
+# Product repos are read from the repo variable PRODUCT_REPOS (space-separated
+# "owner/repo" list) or the workflow_dispatch input. Private product repos need
+# the DIGEST_TOKEN secret (read access to those repos); public ones don't.
+name: dept-digest
+
+on:
+  schedule:
+    - cron: "0 5 * * *"   # 07:00 Amsterdam during CEST (summer)
+    - cron: "0 6 * * *"   # 07:00 Amsterdam during CET (winter)
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: Space-separated product repos (owner/repo); overrides the PRODUCT_REPOS variable
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+concurrency:
+  group: dept-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fire only at 07:00 Amsterdam (both crons fire; one is the wrong season)
+        id: tzgate
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(TZ=Europe/Amsterdam date +%H)" != "07" ]; then
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "Wrong-season cron firing — skipping."
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Collect and publish digest
+        if: steps.tzgate.outputs.go == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.DIGEST_TOKEN || github.token }}
+          REPOS_INPUT: ${{ inputs.repos }}
+          REPOS_VAR: ${{ vars.PRODUCT_REPOS }}
+          AGENTS_ENABLED_STATE: ${{ vars.AGENTS_ENABLED }}
+        run: |
+          set -uo pipefail
+          TODAY=$(TZ=Europe/Amsterdam date +%F)
+          SINCE=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          REPOS="${REPOS_INPUT:-${REPOS_VAR:-}} ${{ github.repository }}"
+          BODY=digest.md
+
+          {
+            echo "_Agent department digest for ${TODAY}, covering the last 24h._"
+            echo
+            if [ "${AGENTS_ENABLED_STATE:-true}" = "false" ]; then
+              echo "> 🛑 **KILL SWITCH ACTIVE** — \`AGENTS_ENABLED=false\` in ${{ github.repository }}. No agent runs; see docs/runbooks/kill-switch.md."
+              echo
+            fi
+          } > "$BODY"
+
+          for R in $REPOS; do
+            echo "## ${R}" >> "$BODY"
+
+            RUNS_JSON=$(gh api "repos/${R}/actions/runs?created=%3E%3D${SINCE}&per_page=100" 2>/dev/null) || {
+              echo "- ⚠️ could not read workflow runs (missing access? see DIGEST_TOKEN in workflows/README.md)" >> "$BODY"
+              echo >> "$BODY"
+              continue
+            }
+
+            echo "$RUNS_JSON" | jq -r '
+              [.workflow_runs[] | select(.name | test("dept|department"; "i"))] |
+              if length == 0 then "**Agent runs (24h):** none"
+              else
+                "**Agent runs (24h):** \(length) — " +
+                ([group_by(.conclusion // .status)[] | "\(.[0].conclusion // .[0].status): \(length)"] | join(", "))
+              end' >> "$BODY"
+
+            echo "$RUNS_JSON" | jq -r '
+              [.workflow_runs[] | select(.name | test("dept|department"; "i")) | select(.conclusion == "failure")][] |
+              "- ❌ failed: [\(.name) #\(.run_number)](\(.html_url))"' >> "$BODY"
+
+            for L in "status:intake" "status:design" "status:build"; do
+              gh issue list --repo "$R" --label "$L" --state open \
+                --json number,title,url \
+                --jq ".[] | \"- ⏳ \`$L\`: [#\(.number) \(.title)](\(.url))\"" >> "$BODY" 2>/dev/null || true
+            done
+
+            gh pr list --repo "$R" --state open --json number,title,isDraft,url --jq '
+              .[] | select(.isDraft == false) |
+              select((.title | startswith("Design:")) or (.title | startswith("Feature:"))) |
+              "- 👀 **waiting on gate review**: [#\(.number) \(.title)](\(.url))"' >> "$BODY" 2>/dev/null || true
+
+            echo >> "$BODY"
+          done
+
+          {
+            echo "---"
+            echo "**Budget:** monthly cap and per-agent consumption live in the Claude Console workspace \`dev-department\` (cap: TODO(choice-5)) — not yet automated here; see docs/runbooks/budget.md."
+          } >> "$BODY"
+
+          URL=$(gh issue create --repo "${{ github.repository }}" \
+            --title "Daily digest — ${TODAY}" --label digest --body-file "$BODY")
+          NEW=$(printf '%s' "$URL" | grep -oE '[0-9]+$')
+          echo "Created digest issue #${NEW}: $URL"
+
+          for N in $(gh issue list --repo "${{ github.repository }}" --label digest --state open --json number -q '.[].number'); do
+            if [ "$N" != "$NEW" ]; then
+              gh issue close "$N" --repo "${{ github.repository }}" --comment "Superseded by #${NEW}."
+            fi
+          done
