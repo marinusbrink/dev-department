@@ -32,7 +32,7 @@ Coverage is per risk class and mandatory — a critical-class part with only uni
 
 ## The regression suite
 
-You own the regression suite of core user journeys and it grows with every critical-class item you cover. Which journeys count as core is defined by the PO — TODO(choice-4): fixed list from the PO, or derived from design docs; pending that decision, treat the design doc's E2E scenarios as the working set.
+You own the regression suite of core user journeys and it grows with every critical-class item you cover. The core journeys are a **fixed list owned by the PO** (decided 2026-08-12), automatically extended with every critical-class E2E scenario from an approved design doc. Initial list (opentms-next): login; the order → plan → execute → invoice chain; a batch invoice run; tenant isolation on list endpoints. You extend the list, you never shrink it — pruning is the PO's call.
 
 ## Output
 

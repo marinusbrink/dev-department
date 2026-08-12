@@ -8,19 +8,19 @@ Overall: the §11 week-1 scope is complete and weeks 2–3 are largely pre-built
 
 ## A. Waiting on the human
 
-### A1. Open design choices (TODO(choice-N))
+### A1. Open design choices — all decided 2026-08-12 (PR "chore: resolve open choices 1-7")
 
-- [ ] **choice-1 — notification channel** (digest + critical alerts): marked in `README.md`, `agents/devops.md`, `.github/workflows/digest.yml`. Interim: GitHub issue labeled `digest`; critical devops escalation = `@`-mention.
-- [ ] **choice-2 — design gate rhythm**: ⚠️ **marked nowhere** — the only choice without a `TODO(choice-2)` anchor. The de-facto interim is "review as soon as ready" (the design PR simply waits for your merge). Needs a marker (likely in `workflows/README.md` § How the phases chain) or a decision.
-- [ ] **choice-3 — release train days** (Tue/Fri vs. store lead times): marked in `agents/release-manager.md`.
-- [ ] **choice-4 — regression suite core journeys** (fixed list vs. derived): marked in `agents/test-engineer.md`. Interim: design docs' E2E scenarios.
-- [ ] **choice-5 — monthly budget ceiling**: marked in `README.md`, `workflows/README.md`, `docs/runbooks/budget.md`, `.github/workflows/digest.yml`.
-- [ ] **choice-6 — documentation languages**: marked in `agents/documentation.md`. Interim: source language only.
-- [ ] **choice-7 — performance budget numbers** (esp. 99.9%): marked in `conventions/performance-budgets.md`.
+- [x] **choice-1 — notification channel** = **email**: digest mailed daily (guarded email step in `digest.yml`, activates when the `MAIL_*` secrets are set); critical devops alerts go by email *plus* `@`-mention; the GitHub issue labeled `digest` stays as the always-works fallback. Resolved in `README.md`, `agents/devops.md`, `.github/workflows/digest.yml`.
+- [x] **choice-2 — design gate rhythm** = **review as soon as ready** — a design PR waits only for the PO, never for a calendar. First anchored with a `TODO(choice-2)` marker in `workflows/README.md` § How the phases chain (it was marked nowhere), then resolved there.
+- [x] **choice-3 — mobile release train** = **Tue/Fri confirmed** — submission days, store review lands 1–2 days later. Dormant until ryd onboards. Resolved in `agents/release-manager.md`.
+- [x] **choice-4 — regression core journeys** = **fixed PO-owned list** (initial, opentms-next: login; order → plan → execute → invoice chain; batch invoice run; tenant isolation on list endpoints), automatically extended with every critical-class E2E scenario from approved design docs. Resolved in `agents/test-engineer.md`.
+- [x] **choice-5 — monthly budget ceiling** = **€500 hard cap** on the dev-department workspace; digest shows month-to-date consumption (Admin cost-report API, activates when `ANTHROPIC_ADMIN_KEY` is set); revisit after one month of real PBIs. Resolved in `README.md`, `workflows/README.md`, `docs/runbooks/budget.md`, `.github/workflows/digest.yml`.
+- [x] **choice-6 — documentation languages** = **the product's ABP localization configuration is the single source of truth**, read at run time (never a hardcoded list); source language EN (ryd) / NL (opentms-next); all other configured languages are generated translations with human spot checks. Resolved in `agents/documentation.md`.
+- [x] **choice-7 — performance budgets** = **all default numbers confirmed**, including 99.9% availability; mobile rows defined but dormant until ryd onboards. Resolved in `conventions/performance-budgets.md`.
 
 ### A2. Human setup actions (documented, not yet performed)
 
-- [ ] Claude Platform workspace `dev-department` + `ANTHROPIC_API_KEY` + spend cap (§2; `docs/runbooks/budget.md`).
+- [ ] Claude Platform workspace `dev-department` + `ANTHROPIC_API_KEY` + spend cap (§2; `docs/runbooks/budget.md`; cap decided: €500).
 - [ ] ryd onboarding itself: copy `CLAUDE.md` (fill `TODO(fill-from-repo)` stubs), labels, issue form, callers, secrets, `PRODUCT_REPOS` variable (`docs/onboarding/product-onboarding.md`).
 - [ ] Branch protection on the product repo's `main` (§8; onboarding step 5).
 - [ ] **Branch protection on `dev-department` itself**: `conventions/README.md` promises "changes only via reviewed PRs", but this repo's `main` is unprotected — this entire build was pushed straight to main. Consistent for bootstrap, inconsistent from the moment the department operates.
@@ -56,7 +56,7 @@ Overall: the §11 week-1 scope is complete and weeks 2–3 are largely pre-built
 
 ### B3. Observability of the department itself
 
-- [ ] Digest budget line is a manual pointer to the console — no automated spend reporting (acceptable until choice-5; noted for completeness).
+- [x] Digest budget line is a manual pointer to the console — no automated spend reporting (acceptable until choice-5; noted for completeness). **Fixed 2026-08-12:** the digest fetches month-to-date spend from the Admin cost-report API once the `ANTHROPIC_ADMIN_KEY` secret is set — PR "chore: resolve open choices 1-7".
 - [ ] Per-agent API attribution needs key-per-workflow split (documented as refinement in `docs/runbooks/budget.md`, not done).
 
 ---
