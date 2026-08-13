@@ -94,6 +94,15 @@ jobs:
           max-turns: ${{ inputs.max-turns-implementer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
+          # Explicit allowlist — same failure class as the architect incident
+          # 2026-08-13 (run 31714423931: no allowlist, headless runs deny every
+          # mutating tool call, 28 denials burned the whole budget). Exactly this
+          # agent's duties: fix code, commit and push to the checked-out PR branch,
+          # read every review thread, reply where a comment rests on a
+          # misunderstanding. No branch creation — `gh pr checkout` ran above.
+          # Build/test commands stay ungranted until phase-3 activation (gap
+          # report B1).
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           assignment: |
             Repository: ${{ github.repository }} — PR #${{ inputs.pr-number }} (branch already checked out).
             Human review comments arrived at gate 2. Read every review comment and

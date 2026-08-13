@@ -116,6 +116,16 @@ jobs:
           max-turns: ${{ inputs.max-turns-implementer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
+          # Explicit allowlist — same failure class as the architect incident
+          # 2026-08-13 (run 31714423931: no allowlist passed, headless runs deny
+          # every mutating tool call, 28 denials burned the whole turn budget).
+          # Exactly the tools this agent's duties name: write code, stage/commit/
+          # push the assigned branch, read and comment the PBI and draft PR. No
+          # branch creation — the workflow checks the branch out. Build/test/
+          # package-manager commands (dotnet, node, …) are deliberately NOT
+          # granted yet: product-specific, decided at phase-3 activation (gap
+          # report B1).
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           assignment: |
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}
             Approved design doc: ${{ steps.setup.outputs.design }}
@@ -137,6 +147,8 @@ jobs:
           max-turns: ${{ inputs.max-turns-implementer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
+          # Same mutating-agent allowlist — rationale at the backend implementer step.
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           assignment: |
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}
             Approved design doc: ${{ steps.setup.outputs.design }}
@@ -177,6 +189,9 @@ jobs:
           max-turns: ${{ inputs.max-turns-test-engineer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
+          # Same mutating-agent allowlist — the test engineer writes, commits and
+          # pushes test code and posts findings; rationale at the backend implementer step.
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           assignment: |
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}
             Approved design doc: ${{ steps.setup.outputs.design }}
@@ -194,6 +209,8 @@ jobs:
           max-turns: ${{ inputs.max-turns-implementer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
+          # Same mutating-agent allowlist — rationale at the backend implementer step.
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           assignment: |
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}, branch ${{ steps.setup.outputs.branch }}
             The test engineer posted bug findings on draft PR #${{ steps.draftpr.outputs.pr }}.
@@ -211,6 +228,8 @@ jobs:
           max-turns: ${{ inputs.max-turns-test-engineer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
+          # Same mutating-agent allowlist — rationale at the backend implementer step.
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           assignment: |
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}, branch ${{ steps.setup.outputs.branch }}, draft PR #${{ steps.draftpr.outputs.pr }}
             Re-run: verify your earlier findings are resolved and the suite is green.
@@ -225,6 +244,10 @@ jobs:
           max-turns: ${{ inputs.max-turns-documentation }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
+          # Mutating-agent allowlist minus the PR-diff read: the docs agent writes
+          # the manual page from PBI + design doc (its sources of truth), commits,
+          # pushes, comments. Rationale at the backend implementer step.
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
           assignment: |
             Run mode: draft.
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}
@@ -263,6 +286,8 @@ jobs:
           max-turns: ${{ inputs.max-turns-implementer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
+          # Same mutating-agent allowlist — rationale at the backend implementer step.
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           assignment: |
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}, branch ${{ steps.setup.outputs.branch }}
             The reviewer posted [blocker] findings on draft PR #${{ steps.draftpr.outputs.pr }}.
