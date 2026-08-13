@@ -11,6 +11,15 @@ on:
         required: false
         type: string
         default: claude-sonnet-4-6
+      max-turns:
+        description: >-
+          Turn budget for the architect run (§8 — a stuck agent costs at most one
+          run budget). Default is the highest in the pipeline: the architect
+          produces the largest single artifact (the full nine-section design doc)
+          in one run.
+        required: false
+        type: number
+        default: 80
       mode:
         description: architect | design-merged
         required: false
@@ -88,9 +97,14 @@ jobs:
         with:
           model: ${{ inputs.model }}
           agent-file: agents/architect.md
-          max-turns: 50
+          max-turns: ${{ inputs.max-turns }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
+          # The exact tool set the architect's definition requires (write the design
+          # doc, branch/commit/push, open the design PR, report conflicts) — and no
+          # more. Without an explicit allowlist, headless runs deny every mutating
+          # tool call: incident 2026-08-13, 25 denials in 51 turns, no output.
+          allowed-tools: "Read,Grep,Glob,Write,Edit,Bash(git status:*),Bash(git checkout:*),Bash(git switch:*),Bash(git branch:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr create:*),Bash(gh pr view:*)"
           assignment: |
             Repository: ${{ github.repository }}
             PBI issue number: ${{ inputs.issue-number }}

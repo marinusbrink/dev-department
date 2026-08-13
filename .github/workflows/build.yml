@@ -14,6 +14,23 @@ on:
         required: false
         type: string
         default: claude-sonnet-4-6
+      # Per-role turn budgets (§8) — caller-configurable, like the model input.
+      max-turns-implementer:
+        required: false
+        type: number
+        default: 60
+      max-turns-test-engineer:
+        required: false
+        type: number
+        default: 60
+      max-turns-documentation:
+        required: false
+        type: number
+        default: 40
+      max-turns-reviewer:
+        required: false
+        type: number
+        default: 30
       issue-number:
         description: PBI issue number labeled status:build (design PR must be merged)
         required: true
@@ -96,7 +113,7 @@ jobs:
         with:
           model: ${{ inputs.model }}
           agent-file: agents/implementer-backend.md
-          max-turns: 75
+          max-turns: ${{ inputs.max-turns-implementer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           assignment: |
@@ -117,7 +134,7 @@ jobs:
         with:
           model: ${{ inputs.model }}
           agent-file: agents/implementer-frontend.md
-          max-turns: 60
+          max-turns: ${{ inputs.max-turns-implementer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           assignment: |
@@ -157,7 +174,7 @@ jobs:
         with:
           model: ${{ inputs.model }}
           agent-file: agents/test-engineer.md
-          max-turns: 60
+          max-turns: ${{ inputs.max-turns-test-engineer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           assignment: |
@@ -174,7 +191,7 @@ jobs:
         with:
           model: ${{ inputs.model }}
           agent-file: agents/implementer-backend.md
-          max-turns: 60
+          max-turns: ${{ inputs.max-turns-implementer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           assignment: |
@@ -191,7 +208,7 @@ jobs:
         with:
           model: ${{ inputs.model }}
           agent-file: agents/test-engineer.md
-          max-turns: 50
+          max-turns: ${{ inputs.max-turns-test-engineer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           assignment: |
@@ -205,7 +222,7 @@ jobs:
         with:
           model: ${{ inputs.model }}
           agent-file: agents/documentation.md
-          max-turns: 40
+          max-turns: ${{ inputs.max-turns-documentation }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           assignment: |
@@ -227,7 +244,7 @@ jobs:
         with:
           model: ${{ inputs.model }}
           agent-file: agents/reviewer.md
-          max-turns: 40
+          max-turns: ${{ inputs.max-turns-reviewer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           allowed-tools: "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh issue view:*)"
@@ -243,7 +260,7 @@ jobs:
         with:
           model: ${{ inputs.model }}
           agent-file: agents/implementer-backend.md
-          max-turns: 60
+          max-turns: ${{ inputs.max-turns-implementer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           assignment: |
@@ -260,7 +277,7 @@ jobs:
         with:
           model: ${{ inputs.model }}
           agent-file: agents/reviewer.md
-          max-turns: 40
+          max-turns: ${{ inputs.max-turns-reviewer }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           allowed-tools: "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Bash(gh pr edit:*),Bash(gh pr comment:*),Bash(gh issue view:*)"
