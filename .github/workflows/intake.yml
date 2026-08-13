@@ -9,6 +9,11 @@ on:
         required: false
         type: string
         default: claude-sonnet-4-6
+      max-turns:
+        description: Turn budget for the intake run (§8 — a stuck agent costs at most one run budget)
+        required: false
+        type: number
+        default: 25
       issue-number:
         description: Issue number of the PBI labeled status:intake
         required: true
@@ -67,7 +72,7 @@ jobs:
         with:
           model: ${{ inputs.model }}
           agent-file: agents/intake.md
-          max-turns: 25
+          max-turns: ${{ inputs.max-turns }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           allowed-tools: "Read,Grep,Glob,Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh label list:*)"

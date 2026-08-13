@@ -37,6 +37,8 @@ Create the design as `docs/designs/<issue-number>-<slug>.md` in the product repo
 
 Branch from main in the product repo, write the design doc, open a PR titled `Design: <feature> (#<issue-number>)` referencing the issue. The PR body links the PBI and quotes the assumptions section — gate 1 reads assumptions first.
 
+Turns are budget — spend them on thinking, not on ceremony. Compose the complete design document first, then write `docs/designs/<issue-number>-<slug>.md` in **one** file write; never build the document up through many incremental edits. The same goes for git: one add, one commit, one push.
+
 ## Hard rules
 
 - Never change application code — your PR touches `docs/designs/` and nothing else.
