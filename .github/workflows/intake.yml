@@ -4,6 +4,11 @@ name: dept-intake
 on:
   workflow_call:
     inputs:
+      model:
+        description: Model for every agent run in this workflow — explicit and workflow-owned; checked-in settings files never decide it
+        required: false
+        type: string
+        default: claude-sonnet-4-6
       issue-number:
         description: Issue number of the PBI labeled status:intake
         required: true
@@ -60,6 +65,7 @@ jobs:
         id: agent
         uses: ./.dev-department/.github/actions/run-agent
         with:
+          model: ${{ inputs.model }}
           agent-file: agents/intake.md
           max-turns: 25
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

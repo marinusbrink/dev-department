@@ -12,6 +12,7 @@ Deploy/release workflows are deliberately absent — they are product-specific a
 - **Budget bound**: conservative `--max-turns` per agent run — a stuck agent costs at most one run budget. Monthly ceiling for the API workspace: €500 hard cap (decided 2026-08-12; revisit after one month of real PBIs).
 - **Failure is visible**: any errored run posts a ⚠️ comment on the triggering issue/PR with the run log link. Silence never means "all good".
 - **RESULT contract**: every agent ends with a machine-readable `RESULT:` line; a run without one fails loudly.
+- **Model is workflow-owned**: every reusable workflow takes a `model` input (default `claude-sonnet-4-6`) and passes it as `--model` to every agent run, so neither checked-in `.claude` settings files nor the CLI's dynamic default-model resolution can ever decide the department's model (incident 2026-08-13: agent runs failed on a server-resolved `claude-opus-5[1m]` interactive alias the SDK rejects). Callers may override per call with `with: model:`; raising a role's model is a PO decision, not an agent or default drift.
 
 ## The caller stub
 
