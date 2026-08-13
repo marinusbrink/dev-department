@@ -4,6 +4,12 @@
 # after test findings and ONE after reviewer blockers (§4.6: blockers go back to the
 # implementer before the PR reaches gate 2). The PR leaves draft state only at zero
 # blockers. If findings remain, the pipeline pauses visibly and a human decides.
+# Re-trigger semantics: every run starts from a fresh clone, and an existing
+# feature/<issue> branch is force-aligned to its pushed tip (checkout -B) — a
+# defined state with no local leftovers — then the pipeline continues on it:
+# partial work and review history are preserved on purpose (§5), never reset to
+# main. A restart from scratch is a human act: delete the branch, then re-apply
+# status:build.
 name: dept-build
 
 on:
@@ -16,9 +22,10 @@ on:
         default: claude-sonnet-4-6
       # Per-role turn budgets (§8) — caller-configurable, like the model input.
       max-turns-implementer:
+        # 100: platform-level frontend components are the largest implementation artifacts (run 31750544961 starved at 60).
         required: false
         type: number
-        default: 60
+        default: 100
       max-turns-test-engineer:
         required: false
         type: number
@@ -113,7 +120,8 @@ jobs:
           fi
           BRANCH="feature/${ISSUE}"
           if git fetch origin "$BRANCH" 2>/dev/null; then
-            git checkout "$BRANCH"
+            # Defined state, not a guess: exactly the pushed tip (header: re-trigger semantics).
+            git checkout -B "$BRANCH" "origin/$BRANCH"
           else
             git checkout -b "$BRANCH"
             git push -u origin "$BRANCH"

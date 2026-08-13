@@ -66,6 +66,25 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github-token }}
 
+    # The action hides the transcript by default and the execution file dies with
+    # the runner — twice now a denial list was unrecoverable when an incident
+    # needed it (runs 31714423931, 31750544961). Artifacts are repo-collaborator
+    # only; 30 days covers any incident review.
+    - name: Unique artifact name
+      if: always()
+      id: uniq
+      shell: bash
+      run: echo "name=agent-execution-$(basename "${{ inputs.agent-file }}" .md)-$(date +%s)" >> "$GITHUB_OUTPUT"
+
+    - name: Preserve execution output (§8 — denials stay diagnosable)
+      if: always() && steps.claude.outputs.execution_file != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.uniq.outputs.name }}
+        path: ${{ steps.claude.outputs.execution_file }}
+        retention-days: 30
+        if-no-files-found: ignore
+
     - name: Parse RESULT line
       id: parse
       shell: bash
