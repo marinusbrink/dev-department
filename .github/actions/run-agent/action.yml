@@ -20,6 +20,14 @@ inputs:
   max-turns:
     description: Conservative per-run turn cap (§8 — a stuck agent costs at most one run budget)
     required: true
+  model:
+    description: >-
+      Model ID for this agent run. Required and workflow-owned on purpose: with
+      --model always passed, neither checked-in .claude settings files nor the
+      CLI's dynamic default-model resolution can ever decide the department's
+      model (incident 2026-08-13: runs failed on a server-resolved
+      "claude-opus-5[1m]" interactive alias the SDK rejects).
+    required: true
   allowed-tools:
     description: Optional --allowedTools value; use to technically restrict read/comment-only agents
     required: false
@@ -52,6 +60,7 @@ runs:
           Assignment:
           ${{ inputs.assignment }}
         claude_args: >-
+          --model ${{ inputs.model }}
           --max-turns ${{ inputs.max-turns }}
           ${{ inputs.allowed-tools != '' && format('--allowedTools "{0}"', inputs.allowed-tools) || '' }}
       env:

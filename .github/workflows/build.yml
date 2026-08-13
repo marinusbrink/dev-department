@@ -9,6 +9,11 @@ name: dept-build
 on:
   workflow_call:
     inputs:
+      model:
+        description: Model for every agent run in this workflow — explicit and workflow-owned; checked-in settings files never decide it
+        required: false
+        type: string
+        default: claude-sonnet-4-6
       issue-number:
         description: PBI issue number labeled status:build (design PR must be merged)
         required: true
@@ -89,6 +94,7 @@ jobs:
         id: be
         uses: ./.dev-department/.github/actions/run-agent
         with:
+          model: ${{ inputs.model }}
           agent-file: agents/implementer-backend.md
           max-turns: 75
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -109,6 +115,7 @@ jobs:
         if: steps.be.outputs.result == 'done'
         uses: ./.dev-department/.github/actions/run-agent
         with:
+          model: ${{ inputs.model }}
           agent-file: agents/implementer-frontend.md
           max-turns: 60
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -148,6 +155,7 @@ jobs:
         if: steps.fe.outputs.result == 'done'
         uses: ./.dev-department/.github/actions/run-agent
         with:
+          model: ${{ inputs.model }}
           agent-file: agents/test-engineer.md
           max-turns: 60
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -164,6 +172,7 @@ jobs:
         if: startsWith(steps.te.outputs.result, 'findings:')
         uses: ./.dev-department/.github/actions/run-agent
         with:
+          model: ${{ inputs.model }}
           agent-file: agents/implementer-backend.md
           max-turns: 60
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -180,6 +189,7 @@ jobs:
         if: steps.fixtests.outputs.result == 'done'
         uses: ./.dev-department/.github/actions/run-agent
         with:
+          model: ${{ inputs.model }}
           agent-file: agents/test-engineer.md
           max-turns: 50
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -193,6 +203,7 @@ jobs:
         if: steps.te.outputs.result == 'passed' || steps.te2.outputs.result == 'passed'
         uses: ./.dev-department/.github/actions/run-agent
         with:
+          model: ${{ inputs.model }}
           agent-file: agents/documentation.md
           max-turns: 40
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -214,6 +225,7 @@ jobs:
         if: steps.docs.outputs.result == 'drafted'
         uses: ./.dev-department/.github/actions/run-agent
         with:
+          model: ${{ inputs.model }}
           agent-file: agents/reviewer.md
           max-turns: 40
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -229,6 +241,7 @@ jobs:
         if: startsWith(steps.review.outputs.result, 'blockers:')
         uses: ./.dev-department/.github/actions/run-agent
         with:
+          model: ${{ inputs.model }}
           agent-file: agents/implementer-backend.md
           max-turns: 60
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -245,6 +258,7 @@ jobs:
         if: steps.fixblockers.outputs.result == 'done'
         uses: ./.dev-department/.github/actions/run-agent
         with:
+          model: ${{ inputs.model }}
           agent-file: agents/reviewer.md
           max-turns: 40
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

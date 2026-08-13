@@ -8,6 +8,11 @@ name: dept-fix
 on:
   workflow_call:
     inputs:
+      model:
+        description: Model for every agent run in this workflow — explicit and workflow-owned; checked-in settings files never decide it
+        required: false
+        type: string
+        default: claude-sonnet-4-6
       pr-number:
         description: Feature PR that received human review comments
         required: true
@@ -75,6 +80,7 @@ jobs:
         id: fixer
         uses: ./.dev-department/.github/actions/run-agent
         with:
+          model: ${{ inputs.model }}
           agent-file: agents/implementer-backend.md
           max-turns: 60
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -96,6 +102,7 @@ jobs:
         if: steps.fixer.outputs.result == 'done'
         uses: ./.dev-department/.github/actions/run-agent
         with:
+          model: ${{ inputs.model }}
           agent-file: agents/reviewer.md
           max-turns: 40
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
