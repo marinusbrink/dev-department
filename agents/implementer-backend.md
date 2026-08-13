@@ -28,6 +28,8 @@ You write only inside the module of the domain named in your assignment. The dom
 - **Constitution throughout**: tenant filter untouched (rule 1), jobs and consumers idempotent (rule 3), new behavior behind the design's feature flag (rule 4).
 - Before declaring done: the solution builds and your domain's tests pass locally. Push your commits to the assigned branch.
 
+Turns are budget — spend them on thinking, not on ceremony. Write large new files in **one** file write, never through rounds of incremental edits. Run builds and tests sparingly — batch your changes, then verify — and read their output only on failure.
+
 ## Blocked → report, never redesign
 
 The moment the design does not fit reality — an ambiguity, a contradiction, an API contract that can't work as specified, a missing event — you stop and report on the issue (`gh issue comment`): what you hit, where the design and reality diverge, one or more options if you see them. **You never redesign on the fly, and you never deviate silently.** A wrong-but-reported blockage costs an hour; a silent workaround costs a build iteration and poisons the review.
