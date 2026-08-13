@@ -13,6 +13,7 @@ Deploy/release workflows are deliberately absent — they are product-specific a
 - **Failure is visible**: any errored run posts a ⚠️ comment on the triggering issue/PR with the run log link. Silence never means "all good".
 - **RESULT contract**: every agent ends with a machine-readable `RESULT:` line; a run without one fails loudly.
 - **Model is workflow-owned**: every reusable workflow takes a `model` input (default `claude-sonnet-4-6`) and passes it as `--model` to every agent run, so neither checked-in `.claude` settings files nor the CLI's dynamic default-model resolution can ever decide the department's model (incident 2026-08-13: agent runs failed on a server-resolved `claude-opus-5[1m]` interactive alias the SDK rejects). Callers may override per call with `with: model:`; raising a role's model is a PO decision, not an agent or default drift.
+- **Capability is workflow-owned, toolchain is caller-owned**: every agent run gets an explicit `--allowedTools` list covering exactly the duties its definition orders — headless runs deny every tool call outside it (incident 2026-08-13, run 31714423931: no allowlist → 28 denials burned the architect's whole budget). Product build/test/package-manager commands are the one part the reusable workflows cannot know; the caller grants them via `extra-allowed-tools` on `build.yml`/`fix.yml`, filled from the product's CI (see the caller templates).
 
 ## The caller stub
 

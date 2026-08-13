@@ -36,6 +36,14 @@ Copy `.github/ISSUE_TEMPLATE/pbi.yml` from dev-department into the product repo 
 
 Deploy secrets come later (step 6, phase 3) and go into **GitHub Environments** per environment, scoped to the deploy workflows only — agents get, per workflow, only the secrets that workflow needs (§8).
 
+**Repo setting (needed from phase 2):** Settings → Actions → General → Workflow permissions → enable **"Allow GitHub Actions to create and approve pull requests"** — or:
+
+```bash
+gh api -X PUT "repos/$R/actions/permissions/workflow" -f default_workflow_permissions=write -F can_approve_pull_request_reviews=true
+```
+
+Without it the architect's `gh pr create` and the build pipeline's draft-PR step are blocked (discovered 2026-08-13 on opentms-next). The setting lets agents *open* PRs; merging stays impossible for them via branch protection (step 5).
+
 ## 5. Branch protection on `main` (§8)
 
 Require: at least **1 human review**, **green CI status checks**, no force pushes, no deletions — and no bypass allowances for apps or bots. Agents work through `GITHUB_TOKEN` (the `github-actions` app); with review required and no bypass, they technically cannot merge or push to main, whatever their prompt says.
@@ -57,7 +65,7 @@ The callers live in [ryd-workflows/](ryd-workflows/); copy them into the product
 |---|---|---|
 | **1 — week 1** | `dept-intake.yml` | Every PBI gets checked against the Definition of Ready. Digest already covers the repo via `PRODUCT_REPOS`. (The reviewer participates from phase 3 — it runs inside the build/fix pipelines; a standalone reviewer trigger for human-authored PRs can be added later if wanted.) |
 | **2 — weeks 2–3** | `dept-design.yml` | The design gate: architect PRs to `docs/designs/`, human merge = gate 1. Stand up the docs site skeleton and OpenAPI publication (§7) alongside, so the documentation agent participates from the first real feature. |
-| **3 — weeks 2–3, after first designs** | `dept-build.yml` + `dept-fix.yml` | Full build pipeline and the gate-2 fix loop. **Start with one low-risk domain** (for ryd: Master Data) — pick the first PBIs accordingly; serialization per domain is the rule anyway (§10). |
+| **3 — weeks 2–3, after first designs** | `dept-build.yml` + `dept-fix.yml` | Full build pipeline and the gate-2 fix loop. **Before enabling: fill `extra-allowed-tools` in both callers with the product's CI toolchain** (the template comment shows how) — without it the agents can push but not build or test. **Start with one low-risk domain** (for ryd: Master Data) — pick the first PBIs accordingly; serialization per domain is the rule anyway (§10). |
 | **4 — week 4+** | *(created at this phase)* | Deploy/release workflows (Cloud Run traffic splitting, release train) are product-specific and are built here, per `agents/release-manager.md` and `agents/devops.md`; then devops layer 1 (logging, SLOs, synthetics) and triage-only devops runs. |
 | **later** | — | Devops self-resolution (rollback), retrospective automation, second product. |
 

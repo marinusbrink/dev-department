@@ -21,6 +21,9 @@ jobs:
     uses: marinusbrink/dev-department/.github/workflows/fix.yml@main
     with:
       pr-number: ${{ github.event.pull_request.number }}
+      # TODO(fill-from-repo) before enabling phase 3: same toolchain grant as in
+      # dept-build.yml — the fix agent must build and test what it fixes.
+      # extra-allowed-tools: "Bash(dotnet:*),Bash(abp:*),Bash(npm:*),Bash(npx:*),Bash(psql:*),Bash(./scripts/generate-openapi.sh)"
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       # DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}   # only while dev-department is private

@@ -31,6 +31,16 @@ on:
         required: false
         type: number
         default: 30
+      extra-allowed-tools:
+        description: >-
+          Product toolchain commands appended to the implementer and
+          test-engineer allowlists (build, test, package manager — e.g.
+          "Bash(dotnet:*),Bash(npm:*)"). The lists below cover the git/gh duties
+          only; the toolchain is product-specific, so the caller grants it (gap
+          report B1). Documentation and reviewer runs never get it.
+        required: false
+        type: string
+        default: ""
       issue-number:
         description: PBI issue number labeled status:build (design PR must be merged)
         required: true
@@ -71,6 +81,10 @@ jobs:
     needs: gate
     if: needs.gate.outputs.enabled == 'true'
     runs-on: ubuntu-latest
+    env:
+      # Comma-prefixed so it appends cleanly to the implementer/test-engineer
+      # allowlists below; empty when the caller grants no toolchain.
+      EXTRA_TOOLS: ${{ inputs.extra-allowed-tools != '' && format(',{0}', inputs.extra-allowed-tools) || '' }}
     steps:
       - name: Check out product repo
         uses: actions/checkout@v4
@@ -122,10 +136,9 @@ jobs:
           # Exactly the tools this agent's duties name: write code, stage/commit/
           # push the assigned branch, read and comment the PBI and draft PR. No
           # branch creation — the workflow checks the branch out. Build/test/
-          # package-manager commands (dotnet, node, …) are deliberately NOT
-          # granted yet: product-specific, decided at phase-3 activation (gap
-          # report B1).
-          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
+          # package-manager commands come from the caller's extra-allowed-tools
+          # input — product-specific, never hardcoded here (gap report B1).
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)${{ env.EXTRA_TOOLS }}"
           assignment: |
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}
             Approved design doc: ${{ steps.setup.outputs.design }}
@@ -148,7 +161,7 @@ jobs:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           # Same mutating-agent allowlist — rationale at the backend implementer step.
-          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)${{ env.EXTRA_TOOLS }}"
           assignment: |
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}
             Approved design doc: ${{ steps.setup.outputs.design }}
@@ -191,7 +204,7 @@ jobs:
           github-token: ${{ github.token }}
           # Same mutating-agent allowlist — the test engineer writes, commits and
           # pushes test code and posts findings; rationale at the backend implementer step.
-          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)${{ env.EXTRA_TOOLS }}"
           assignment: |
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}
             Approved design doc: ${{ steps.setup.outputs.design }}
@@ -210,7 +223,7 @@ jobs:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           # Same mutating-agent allowlist — rationale at the backend implementer step.
-          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)${{ env.EXTRA_TOOLS }}"
           assignment: |
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}, branch ${{ steps.setup.outputs.branch }}
             The test engineer posted bug findings on draft PR #${{ steps.draftpr.outputs.pr }}.
@@ -229,7 +242,7 @@ jobs:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           # Same mutating-agent allowlist — rationale at the backend implementer step.
-          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)${{ env.EXTRA_TOOLS }}"
           assignment: |
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}, branch ${{ steps.setup.outputs.branch }}, draft PR #${{ steps.draftpr.outputs.pr }}
             Re-run: verify your earlier findings are resolved and the suite is green.
@@ -287,7 +300,7 @@ jobs:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           github-token: ${{ github.token }}
           # Same mutating-agent allowlist — rationale at the backend implementer step.
-          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)${{ env.EXTRA_TOOLS }}"
           assignment: |
             Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}, branch ${{ steps.setup.outputs.branch }}
             The reviewer posted [blocker] findings on draft PR #${{ steps.draftpr.outputs.pr }}.
