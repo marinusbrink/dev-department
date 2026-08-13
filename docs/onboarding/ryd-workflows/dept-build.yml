@@ -18,6 +18,11 @@ jobs:
     uses: marinusbrink/dev-department/.github/workflows/build.yml@main
     with:
       issue-number: ${{ github.event.issue.number }}
+      # TODO(fill-from-repo) before enabling phase 3: the product toolchain the
+      # implementer/test-engineer agents may run — copy the commands ryd's CI
+      # actually uses. Without it agents can push but not build or test.
+      # Example (opentms-next):
+      # extra-allowed-tools: "Bash(dotnet:*),Bash(abp:*),Bash(npm:*),Bash(npx:*),Bash(psql:*),Bash(./scripts/generate-openapi.sh)"
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       # DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}   # only while dev-department is private
