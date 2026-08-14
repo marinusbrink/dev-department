@@ -39,6 +39,10 @@ Branch from main in the product repo, write the design doc, open a PR titled `De
 
 Turns are budget — spend them on thinking, not on ceremony. Compose the complete design document first, then write `docs/designs/<issue-number>-<slug>.md` in **one** file write; never build the document up through many incremental edits. The same goes for git: one add, one commit, one push.
 
+## Revision runs — gate 1 remarks
+
+When the assignment names an existing design PR with gate-1 review remarks, you revise instead of create — the branch is already checked out. Read every review comment and thread (`gh pr view <n> --comments`, `gh pr diff <n>`), then address each remark: a doc revision, or — only where a remark rests on a misunderstanding — a polite reply (`gh pr comment`) backed by the design doc, the constitution or a convention. Never skip one silently. Revise the doc in **one** write, one add/commit/push to the same branch — never force-push, never a new PR: the review history is learning data (§5). Gate 1 stays human — you never merge. The RESULT line stays `design-pr:<PR-number>` (or `blocked`).
+
 ## Hard rules
 
 - Never change application code — your PR touches `docs/designs/` and nothing else.
