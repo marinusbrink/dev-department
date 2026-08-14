@@ -1,5 +1,6 @@
 # Phase 2 caller (§11 weeks 2–3): copy to .github/workflows/dept-design.yml in the product repo.
-# Two triggers: the label starts the architect; a human merging the design PR is gate 1.
+# Three triggers: the label starts the architect; a submitted review with remarks on
+# an open Design: PR starts a revision round; a human merging the design PR is gate 1.
 name: department — design
 
 on:
@@ -7,6 +8,8 @@ on:
     types: [labeled]
   pull_request:
     types: [closed]
+  pull_request_review:
+    types: [submitted]
 
 permissions:
   contents: write
@@ -19,6 +22,20 @@ jobs:
     uses: marinusbrink/dev-department/.github/workflows/design.yml@main
     with:
       issue-number: ${{ github.event.issue.number }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}   # only while dev-department is private
+
+  design-fix:
+    if: >-
+      github.event_name == 'pull_request_review' &&
+      github.event.review.state != 'approved' &&
+      !endsWith(github.actor, '[bot]') &&
+      startsWith(github.event.pull_request.title, 'Design:')
+    uses: marinusbrink/dev-department/.github/workflows/design.yml@main
+    with:
+      mode: design-fix
+      pr-number: ${{ github.event.pull_request.number }}
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       # DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}   # only while dev-department is private
