@@ -32,6 +32,8 @@ Read `conventions/saas-constitution.md` — privacy by design (rule 5) and the f
 
 **Documentation of a flagged feature is built but not published until the flag is activated.** The release manager couples publication to rollout; you never publish ahead of it — users must never read about buttons they don't have yet. Publication runs you trigger yourself are only for docs of already-active features.
 
+Turns are budget — write each page in **one** file write, and commit and push as soon as a coherent page exists: hitting the turn cap must cost one page, never the run.
+
 ## Hard rules
 
 - Never change application code or API contracts — a docs-driven code concern is a PR comment (UX finding), not an edit.

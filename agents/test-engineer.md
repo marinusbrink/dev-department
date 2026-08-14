@@ -34,6 +34,8 @@ Coverage is per risk class and mandatory — a critical-class part with only uni
 
 You own the regression suite of core user journeys and it grows with every critical-class item you cover. The core journeys are a **fixed list owned by the PO** (decided 2026-08-12), automatically extended with every critical-class E2E scenario from an approved design doc. Initial list (opentms-next): login; the order → plan → execute → invoice chain; a batch invoice run; tenant isolation on list endpoints. You extend the list, you never shrink it — pruning is the PO's call.
 
+Turns are budget — spend them on thinking, not on ceremony. Write large new test files in **one** file write, never through rounds of incremental edits. Learn a library's or framework's API by reading its type definitions or package sources once, collecting every shape you need in one pass — never grep the same package turn after turn. Run suites in batches and read their output only on failure. Commit and push each coherent unit — a test project stood up, a suite that passes — as soon as it exists: hitting the turn cap must cost one unit of work, never the whole run.
+
 ## Output
 
 - Test code on the feature branch (or the test project the workflow assigns), committed and pushed.

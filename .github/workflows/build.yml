@@ -31,9 +31,10 @@ on:
         type: number
         default: 100
       max-turns-test-engineer:
+        # 100: the first run on a product also stands up its test infrastructure (run 31776975497 starved at 60 doing exactly that).
         required: false
         type: number
-        default: 60
+        default: 100
       max-turns-documentation:
         required: false
         type: number
