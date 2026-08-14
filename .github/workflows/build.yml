@@ -1,5 +1,7 @@
 # Reusable: build phase (§5). Caller triggers on issues labeled status:build.
-# Sequential pipeline on one feature branch: implementer-backend → implementer-frontend
+# Sequential pipeline on one feature branch: implementer-backend → contract refresh
+# (mechanical, caller-owned command — the frontend must never inherit a stale
+# spec/client) → implementer-frontend
 # → draft feature PR → test engineer → documentation draft → reviewer, with at most ONE internal fix round
 # after test findings and ONE after reviewer blockers (§4.6: blockers go back to the
 # implementer before the PR reaches gate 2). The PR leaves draft state only at zero
@@ -45,6 +47,18 @@ on:
           "Bash(dotnet:*),Bash(npm:*)"). The lists below cover the git/gh duties
           only; the toolchain is product-specific, so the caller grants it (gap
           report B1). Documentation and reviewer runs never get it.
+        required: false
+        type: string
+        default: ""
+      contract-refresh-command:
+        description: >-
+          Product command run mechanically between the backend and frontend
+          implementers to regenerate the API contract artifacts (OpenAPI spec +
+          typed client) — typically a repo script that boots the product's
+          dependencies and regenerates both. Resulting changes are committed and
+          pushed without spending agent turns (incident 2026-08-14, run
+          31752956967: the frontend inherited a stale spec and hand-patched it,
+          burning the run). Empty = skip.
         required: false
         type: string
         default: ""
@@ -157,6 +171,16 @@ jobs:
             has unresolved blocker/finding comments, addressing them is part of this
             assignment. If the design assigns no backend work, do nothing and end
             with RESULT: done. Push your commits to the branch.
+
+      - name: Contract refresh (mechanical — zero agent turns)
+        if: steps.be.outputs.result == 'done' && inputs.contract-refresh-command != ''
+        run: |
+          ${{ inputs.contract-refresh-command }}
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "chore: contract refresh — regenerated OpenAPI spec and typed client (#${{ inputs.issue-number }})"
+            git push origin "${{ steps.setup.outputs.branch }}"
+          fi
 
       - name: Frontend implementer
         id: fe

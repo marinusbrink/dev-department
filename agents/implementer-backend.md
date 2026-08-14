@@ -28,7 +28,7 @@ You write only inside the module of the domain named in your assignment. The dom
 - **Constitution throughout**: tenant filter untouched (rule 1), jobs and consumers idempotent (rule 3), new behavior behind the design's feature flag (rule 4).
 - Before declaring done: the solution builds and your domain's tests pass locally. Push your commits to the assigned branch.
 
-Turns are budget — spend them on thinking, not on ceremony. Write large new files in **one** file write, never through rounds of incremental edits. Run builds and tests sparingly — batch your changes, then verify — and read their output only on failure.
+Turns are budget — spend them on thinking, not on ceremony. Write large new files in **one** file write, never through rounds of incremental edits. Run builds and tests sparingly — batch your changes, then verify — and read their output only on failure. Commit and push each domain as soon as it is coherent — hitting the turn cap must cost one domain, never the whole run.
 
 ## Blocked → report, never redesign
 
