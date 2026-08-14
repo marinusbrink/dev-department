@@ -8,10 +8,12 @@
 # blockers. If findings remain, the pipeline pauses visibly and a human decides.
 # Re-trigger semantics: every run starts from a fresh clone, and an existing
 # feature/<issue> branch is force-aligned to its pushed tip (checkout -B) — a
-# defined state with no local leftovers — then the pipeline continues on it:
-# partial work and review history are preserved on purpose (§5), never reset to
-# main. A restart from scratch is a human act: delete the branch, then re-apply
-# status:build.
+# defined state with no local leftovers — then main is forward-merged in (a
+# merge commit, never a rewrite: main-side design fixes and pipeline tooling
+# must reach in-flight branches; conflicts fail loudly for a human) and the
+# pipeline continues on it: partial work and review history are preserved on
+# purpose (§5), never reset to main. A restart from scratch is a human act:
+# delete the branch, then re-apply status:build.
 name: dept-build
 
 on:
@@ -133,9 +135,20 @@ jobs:
             exit 1
           fi
           BRANCH="feature/${ISSUE}"
+          DEFAULT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
           if git fetch origin "$BRANCH" 2>/dev/null; then
             # Defined state, not a guess: exactly the pushed tip (header: re-trigger semantics).
             git checkout -B "$BRANCH" "origin/$BRANCH"
+            # Fold main forward into the in-flight branch: design fixes and
+            # pipeline tooling merged after the branch was cut must reach it
+            # (incident 2026-08-14, run 31775362672: the contract-refresh script
+            # on main was invisible to feature/6). A merge, never a rewrite —
+            # §5's history rule holds; a conflict fails loudly for a human.
+            if ! git merge --no-edit "origin/$DEFAULT_BRANCH"; then
+              echo "::error::Merging origin/$DEFAULT_BRANCH into $BRANCH conflicts — resolve and push by hand, then re-apply status:build."
+              exit 1
+            fi
+            git push origin "$BRANCH"
           else
             git checkout -b "$BRANCH"
             git push -u origin "$BRANCH"
