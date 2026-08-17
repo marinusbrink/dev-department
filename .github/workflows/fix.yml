@@ -98,6 +98,25 @@ jobs:
           echo ".dev-department/" >> .git/info/exclude
           gh pr checkout "${{ inputs.pr-number }}" --repo "${{ github.repository }}"
 
+      # Inline file/line review comments are structurally invisible to the agent
+      # (`gh pr view` shows review bodies + top-level comments only; the threads
+      # API needs `gh api`, which agents don't get) — and human gate-2 remarks
+      # are typically inline. Collect everything mechanically into the synced
+      # (git-excluded) .dev-department/ dir. Incident 2026-08-17, design PR
+      # opentms-next#11 — same blindness, caught in the design loop first.
+      - name: Collect review threads (inline comments are invisible to gh pr view)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR="${{ inputs.pr-number }}"
+          OUT=".dev-department/review-threads.md"
+          echo "# Review remarks on PR #${PR} — mechanically collected; inline comments included" > "$OUT"
+          gh api "repos/${{ github.repository }}/pulls/${PR}/comments" --paginate \
+            --jq '.[] | "\n### Inline — \(.user.login) @ \(.path) line \(.line // .original_line)\n\(.body)\n"' >> "$OUT"
+          gh api "repos/${{ github.repository }}/pulls/${PR}/reviews" --paginate \
+            --jq '.[] | select(.body != null and .body != "") | "\n### Review (\(.state)) — \(.user.login)\n\(.body)\n"' >> "$OUT"
+          echo "Collected review remarks:" && cat "$OUT"
+
       - name: Fix agent (implementer discipline)
         id: fixer
         uses: ./.dev-department/.github/actions/run-agent
@@ -119,8 +138,11 @@ jobs:
           allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)${{ env.EXTRA_TOOLS }}"
           assignment: |
             Repository: ${{ github.repository }} — PR #${{ inputs.pr-number }} (branch already checked out).
-            Human review comments arrived at gate 2. Read every review comment and
-            thread on the PR; identify the human comments not yet addressed by a
+            Human review comments arrived at gate 2. ALL remarks — review bodies
+            AND inline file/line comments — are pre-collected at
+            .dev-department/review-threads.md; read that file FIRST and treat it
+            as the complete comment list (`gh pr view` does not show inline
+            threads). Identify the human comments not yet addressed by a
             later commit or reply. Address each one: a fix commit pushed to this
             branch, or — only where you are convinced the comment rests on a
             misunderstanding — a polite reply explaining why, with the design doc
