@@ -5,7 +5,15 @@
 # → draft feature PR → test engineer → documentation draft → reviewer, with at most ONE internal fix round
 # after test findings and ONE after reviewer blockers (§4.6: blockers go back to the
 # implementer before the PR reaches gate 2). The PR leaves draft state only at zero
-# blockers. If findings remain, the pipeline pauses visibly and a human decides.
+# blockers.
+# Convergence (PO decision 2026-08-17, supersedes the single-fix-round reading of
+# §4.6): once gate 1 approves a design, the pipeline drives itself to green. A
+# mechanical verify gate (caller-owned command) checks the tree compiles after
+# the implementers, with its own fix round; and any run that ends without a
+# gate-2-ready PR — findings left, blockers left, or a failed step — dispatches
+# the NEXT ROUND of itself via workflow_dispatch (the one event GITHUB_TOKEN may
+# self-fire), bounded by max-rounds. At the cap it pauses loudly and a human
+# decides; AGENTS_ENABLED remains the kill switch for the whole loop.
 # Re-trigger semantics: every run starts from a fresh clone, and an existing
 # feature/<issue> branch is force-aligned to its pushed tip (checkout -B) — a
 # defined state with no local leftovers — then main is forward-merged in (a
@@ -53,6 +61,28 @@ on:
         required: false
         type: string
         default: ""
+      verify-command:
+        description: >-
+          Product command that proves the tree compiles and builds (compile +
+          lint, NOT the test suite — tests are the test engineer's). Runs
+          mechanically after the implementers; a red result triggers a
+          compile-fix agent round, then re-verifies. Empty = skip.
+        required: false
+        type: string
+        default: ""
+      round:
+        description: Internal convergence counter — set by the pipeline's own re-dispatch, leave at 1 for manual runs
+        required: false
+        type: number
+        default: 1
+      max-rounds:
+        description: >-
+          Hard cap on self-dispatched convergence rounds (§8 — the loop must
+          have a brake besides the kill switch). At the cap the pipeline pauses
+          loudly instead of dispatching again.
+        required: false
+        type: number
+        default: 3
       contract-refresh-command:
         description: >-
           Product command run mechanically between the backend and frontend
@@ -83,6 +113,8 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  # For the convergence loop's self-dispatch (workflow_dispatch re-entry).
+  actions: write
 
 jobs:
   gate:
@@ -217,6 +249,37 @@ jobs:
             your area, addressing them is part of this assignment. If the design
             assigns no frontend work, do nothing and end with RESULT: done.
             Push your commits to the branch.
+
+      - name: Verify the tree compiles (mechanical — zero agent turns)
+        id: verify
+        if: steps.fe.outputs.result == 'done' && inputs.verify-command != ''
+        continue-on-error: true
+        run: ${{ inputs.verify-command }}
+
+      - name: Compile-fix round
+        id: fixcompile
+        if: steps.verify.outcome == 'failure'
+        uses: ./.dev-department/.github/actions/run-agent
+        with:
+          model: ${{ inputs.model }}
+          agent-file: agents/implementer-backend.md
+          max-turns: ${{ inputs.max-turns-implementer }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ github.token }}
+          # Same mutating-agent allowlist — rationale at the backend implementer step.
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git diff:*),Bash(git log:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)${{ env.EXTRA_TOOLS }}"
+          assignment: |
+            Repository: ${{ github.repository }} — issue #${{ inputs.issue-number }}, branch ${{ steps.setup.outputs.branch }} (already checked out)
+            The mechanical verification failed: the tree does not compile/lint/build.
+            Verification command: ${{ inputs.verify-command }}
+            Run it, read the failures, and fix the application code until it is green
+            (frontend fixes follow .dev-department/agents/implementer-frontend.md
+            discipline; never weaken or delete tests to get green). Push your fix
+            commits. End with RESULT: done or RESULT: blocked.
+
+      - name: Verify again after the compile-fix round (loud — a red tree stops this round)
+        if: steps.verify.outcome == 'failure'
+        run: ${{ inputs.verify-command }}
 
       - name: Open draft feature PR
         id: draftpr
@@ -379,15 +442,27 @@ jobs:
           gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body \
             "✅ Feature PR #${{ steps.draftpr.outputs.pr }} passed internal review with zero blockers and awaits gate 2."
 
-      - name: Pipeline paused — report state (no silent stops)
-        if: success() && steps.review.outputs.result != 'approved' && steps.review2.outputs.result != 'approved'
+      - name: Not green yet → dispatch the next convergence round
+        if: success() && steps.review.outputs.result != 'approved' && steps.review2.outputs.result != 'approved' && inputs.round < inputs.max-rounds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NEXT=$(( ${{ inputs.round }} + 1 ))
+          gh workflow run "${{ github.workflow }}" --repo "${{ github.repository }}" \
+            -f issue-number="${{ inputs.issue-number }}" -f round="$NEXT"
+          gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body \
+            "🔁 Build round ${{ inputs.round }} ended without a gate-2-ready PR — dispatching round $NEXT of ${{ inputs.max-rounds }} (convergence loop, PO decision 2026-08-17).
+          Phase results: backend=\`${{ steps.be.outputs.result }}\` frontend=\`${{ steps.fe.outputs.result }}\` tests=\`${{ steps.te.outputs.result }}\` tests-after-fix=\`${{ steps.te2.outputs.result }}\` docs=\`${{ steps.docs.outputs.result }}\` review=\`${{ steps.review.outputs.result }}\` review-after-fix=\`${{ steps.review2.outputs.result }}\`."
+
+      - name: Round cap reached — pause loudly (no silent stops)
+        if: success() && steps.review.outputs.result != 'approved' && steps.review2.outputs.result != 'approved' && inputs.round >= inputs.max-rounds
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body \
-            "⏸️ Build pipeline paused without a gate-2-ready PR (issue #${{ inputs.issue-number }}).
+            "⏸️ Build pipeline paused: ${{ inputs.max-rounds }} convergence rounds spent without a gate-2-ready PR (issue #${{ inputs.issue-number }}).
           Phase results: backend=\`${{ steps.be.outputs.result }}\` frontend=\`${{ steps.fe.outputs.result }}\` tests=\`${{ steps.te.outputs.result }}\` tests-after-fix=\`${{ steps.te2.outputs.result }}\` docs=\`${{ steps.docs.outputs.result }}\` review=\`${{ steps.review.outputs.result }}\` review-after-fix=\`${{ steps.review2.outputs.result }}\`.
-          The responsible agent reported details in comments here or on the draft PR. After resolving, re-apply \`status:build\` for another pass on the same branch."
+          The responsible agent reported details in comments here or on the draft PR. This cap is the loop's brake (§8): investigate, then re-apply \`status:build\` for a fresh round set on the same branch."
 
   report-failure:
     name: Failure is visible (§1, §8)
@@ -398,5 +473,13 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body \
-            "⚠️ **Agent workflow \`build\` failed** — [run log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). Silent failure is forbidden (design §8); this comment is the alarm. Investigate, then re-apply \`status:build\` to retry (the feature branch is preserved)."
+          if [ "${{ inputs.round < inputs.max-rounds }}" = "true" ]; then
+            NEXT=$(( ${{ inputs.round }} + 1 ))
+            gh workflow run "${{ github.workflow }}" --repo "${{ github.repository }}" \
+              -f issue-number="${{ inputs.issue-number }}" -f round="$NEXT"
+            gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body \
+              "⚠️ **Agent workflow \`build\` failed** — [run log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). 🔁 Dispatching convergence round $NEXT of ${{ inputs.max-rounds }} automatically (the feature branch and its checkpoints are preserved; agents continue from the pushed tip)."
+          else
+            gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body \
+              "⚠️ **Agent workflow \`build\` failed** — [run log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). Silent failure is forbidden (design §8); this comment is the alarm. The ${{ inputs.max-rounds }}-round convergence cap is spent: investigate, then re-apply \`status:build\` to start a fresh round set (the feature branch is preserved)."
+          fi
