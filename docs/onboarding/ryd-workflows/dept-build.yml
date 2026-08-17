@@ -31,6 +31,11 @@ jobs:
     with:
       issue-number: ${{ github.event_name == 'workflow_dispatch' && fromJSON(inputs.issue-number) || github.event.issue.number }}
       round: ${{ github.event_name == 'workflow_dispatch' && fromJSON(inputs.round) || 1 }}
+      # TODO(fill-from-repo) before enabling phase 3: the product CI workflow
+      # name to dispatch when the PR goes gate-2-ready (agent pushes never
+      # trigger CI by themselves; the CI workflow needs a workflow_dispatch
+      # trigger). Example (opentms-next):
+      # ci-workflow: "CI"
       # TODO(fill-from-repo) before enabling phase 3: the compile gate — a
       # command proving the tree compiles/lints/builds (NOT the test suite).
       # Example (opentms-next):
