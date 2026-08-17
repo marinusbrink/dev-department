@@ -45,6 +45,12 @@ runs:
   steps:
     - name: Run agent
       id: claude
+      # The execution file, not the action's exit code, decides this composite's
+      # outcome — see the "Evaluate outcome" step (incident 2026-08-14, run
+      # 31797494981: the action failed a SUCCESSFUL run post-hoc because the
+      # runtime never enforced maxTurns during execution and the action then
+      # punished the completed result for exceeding it).
+      continue-on-error: true
       uses: anthropics/claude-code-action@v1
       with:
         anthropic_api_key: ${{ inputs.anthropic-api-key }}
@@ -84,6 +90,28 @@ runs:
         path: ${{ steps.claude.outputs.execution_file }}
         retention-days: 30
         if-no-files-found: ignore
+
+    - name: Evaluate outcome (the execution file is the contract, §8)
+      shell: bash
+      run: |
+        FILE="${{ steps.claude.outputs.execution_file }}"
+        if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
+          echo "::error::No execution output produced — the agent never ran (action-level failure)."
+          exit 1
+        fi
+        SUBTYPE=$(python3 -c "import json; print(next((m.get('subtype','') for m in json.load(open('$FILE')) if m.get('type')=='result'), ''))")
+        TURNS=$(python3 -c "import json; print(next((m.get('num_turns','?') for m in json.load(open('$FILE')) if m.get('type')=='result'), '?'))")
+        if [ "$SUBTYPE" != "success" ]; then
+          echo "::error::Agent run ended '${SUBTYPE:-unknown}' after $TURNS turns — failed."
+          exit 1
+        fi
+        if [ "${{ steps.claude.outcome }}" = "failure" ]; then
+          # A finished run with a success result is budget already spent; failing
+          # it doubles the spend. Pass, but surface the overshoot loudly — the
+          # turn cap (§8) stays a real budget signal for the PO.
+          echo "::warning::Agent succeeded in $TURNS turns, over the ${{ inputs.max-turns }} cap — action exit overridden; review the role's budget (§8)."
+          echo "⚠️ Turn budget overshoot: $TURNS turns (cap ${{ inputs.max-turns }}) — run succeeded, action exit overridden." >> "$GITHUB_STEP_SUMMARY"
+        fi
 
     - name: Parse RESULT line
       id: parse
