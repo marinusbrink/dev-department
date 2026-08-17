@@ -61,6 +61,16 @@ on:
         required: false
         type: string
         default: ""
+      ci-workflow:
+        description: >-
+          Name of the product's CI workflow to dispatch on the feature branch
+          when the PR goes gate-2-ready. Agent pushes use GITHUB_TOKEN, whose
+          events never trigger workflows — without this kick the PR shows no
+          checks on agent-pushed heads. The workflow must carry a
+          workflow_dispatch trigger. Empty = skip.
+        required: false
+        type: string
+        default: ""
       verify-command:
         description: >-
           Product command that proves the tree compiles and builds (compile +
@@ -439,8 +449,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr ready "${{ steps.draftpr.outputs.pr }}" --repo "${{ github.repository }}"
+          # Agent pushes (GITHUB_TOKEN) never trigger CI — dispatch it on the
+          # branch so the gate-2 head carries real checks. workflow_dispatch is
+          # exempt from the token-trigger suppression; check runs attach to the
+          # head commit and show on the PR. Deliberately NOT a PAT: agents
+          # acting as a human actor would defeat the [bot] guards that keep
+          # agent events from re-triggering agent workflows.
+          if [ -n "${{ inputs.ci-workflow }}" ]; then
+            gh workflow run "${{ inputs.ci-workflow }}" --repo "${{ github.repository }}" --ref "${{ steps.setup.outputs.branch }}"
+            CINOTE=" CI dispatched on \`${{ steps.setup.outputs.branch }}\` — verify the checks are green on the PR before merging."
+          else
+            CINOTE=""
+          fi
           gh issue comment "${{ inputs.issue-number }}" --repo "${{ github.repository }}" --body \
-            "✅ Feature PR #${{ steps.draftpr.outputs.pr }} passed internal review with zero blockers and awaits gate 2."
+            "✅ Feature PR #${{ steps.draftpr.outputs.pr }} passed internal review with zero blockers and awaits gate 2.${CINOTE}"
 
       - name: Not green yet → dispatch the next convergence round
         if: success() && steps.review.outputs.result != 'approved' && steps.review2.outputs.result != 'approved' && inputs.round < inputs.max-rounds
