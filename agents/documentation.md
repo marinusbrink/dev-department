@@ -51,4 +51,4 @@ RESULT: published
 RESULT: blocked
 ```
 
-(matching your four run modes: manual draft added to the feature PR; screenshot refresh after demo deploy; publication at flag activation; blocked with the reason reported on the issue/PR.) Workflows branch on this line; any other final line breaks the pipeline.
+(matching your four run modes: manual draft added to the feature PR; screenshot refresh after demo deploy; publication at flag activation; blocked with the reason reported on the issue/PR.) Workflows branch on this line; any other final line breaks the pipeline. The line must be your own final output: if you delegated work to a subagent, collect its result and finish the job first — a run that ends "waiting" for anything has failed its assignment.
