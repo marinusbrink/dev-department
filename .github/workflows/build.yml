@@ -33,24 +33,31 @@ on:
         type: string
         default: claude-sonnet-4-6
       # Per-role turn budgets (§8) — caller-configurable, like the model input.
+      # Headroom policy (PO decision 2026-08-18): caps are 2-3x observed
+      # successful-run turn counts and catch pathology, not performance — a run
+      # killed at the cap costs its full spend plus the convergence round that
+      # re-does it. The real brakes are max-rounds, the workspace spend cap and
+      # the kill switch. The retrospective after ~5 shipped features tightens
+      # these from the run artifacts' num_turns/cost data.
       max-turns-implementer:
-        # 100: platform-level frontend components are the largest implementation artifacts (run 31750544961 starved at 60).
+        # Largest implementation artifacts observed: platform-level frontend components (runs 31750544961, 31752956967).
         required: false
         type: number
-        default: 100
+        default: 150
       max-turns-test-engineer:
-        # 100: the first run on a product also stands up its test infrastructure (run 31776975497 starved at 60 doing exactly that).
+        # The first run on a product also stands up its test infrastructure (run 31776975497).
         required: false
         type: number
-        default: 100
+        default: 150
       max-turns-documentation:
         required: false
         type: number
-        default: 40
+        default: 80
       max-turns-reviewer:
+        # Full-checklist review of a multi-thousand-line diff (starved at 30, 2026-08-18).
         required: false
         type: number
-        default: 30
+        default: 80
       extra-allowed-tools:
         description: >-
           Product toolchain commands appended to the implementer and

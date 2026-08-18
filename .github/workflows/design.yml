@@ -14,14 +14,15 @@ on:
         type: string
         default: claude-sonnet-4-6
       max-turns:
+        # Headroom policy (PO decision 2026-08-18): caps catch pathology, not
+        # performance. Retrospective after ~5 features tightens from run data.
         description: >-
           Turn budget for the architect run (§8 — a stuck agent costs at most one
-          run budget). Default is the highest in the pipeline: the architect
-          produces the largest single artifact (the full nine-section design doc)
-          in one run.
+          run budget). The architect produces the largest single artifact in the
+          pipeline (the full nine-section design doc) in one run.
         required: false
         type: number
-        default: 80
+        default: 120
       mode:
         description: architect | design-fix | design-merged
         required: false

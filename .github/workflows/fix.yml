@@ -14,14 +14,16 @@ on:
         type: string
         default: claude-sonnet-4-6
       # Per-role turn budgets (§8) — caller-configurable, like the model input.
+      # Headroom policy (PO decision 2026-08-18): caps catch pathology, not
+      # performance. Retrospective after ~5 features tightens from run data.
       max-turns-implementer:
         required: false
         type: number
-        default: 60
+        default: 100
       max-turns-reviewer:
         required: false
         type: number
-        default: 30
+        default: 80
       extra-allowed-tools:
         description: >-
           Product toolchain commands appended to the fix agent's allowlist

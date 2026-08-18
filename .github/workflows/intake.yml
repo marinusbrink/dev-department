@@ -10,10 +10,13 @@ on:
         type: string
         default: claude-sonnet-4-6
       max-turns:
+        # Headroom policy (PO decision 2026-08-18): caps catch pathology, not
+        # performance — a killed run costs its full spend and buys nothing. The
+        # retrospective after ~5 shipped features tightens them from run data.
         description: Turn budget for the intake run (§8 — a stuck agent costs at most one run budget)
         required: false
         type: number
-        default: 25
+        default: 40
       issue-number:
         description: Issue number of the PBI labeled status:intake
         required: true
