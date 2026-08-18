@@ -55,6 +55,11 @@ runs:
       with:
         anthropic_api_key: ${{ inputs.anthropic-api-key }}
         github_token: ${{ inputs.github-token }}
+        # The convergence loop's self-dispatched rounds run as the github-actions
+        # bot; without this the action refuses every agent step of a dispatched
+        # round ("Workflow initiated by non-human actor", 2026-08-18, runs
+        # 32133033383/32133085778 — two rounds burned in 90 seconds).
+        allowed_bots: "github-actions"
         prompt: |
           You are one agent of the software development department. Your complete
           system prompt is the file `.dev-department/${{ inputs.agent-file }}` in this
@@ -118,9 +123,25 @@ runs:
       shell: bash
       run: |
         FILE="${{ steps.claude.outputs.execution_file }}"
-        LINE=$(grep -ohE 'RESULT: [a-z-]+(:[0-9]+)?' "$FILE" 2>/dev/null | tail -1 || true)
+        # The RESULT line must come from the agent's own FINAL message — never
+        # from definition files or other text quoted earlier in the transcript.
+        # Incident 2026-08-18 (run 32132616101): a raw grep over the whole
+        # execution file matched "RESULT: blocked" quoted from the agent's own
+        # definition, and an 8-turn do-nothing run masqueraded as a legitimate
+        # block.
+        LINE=$(python3 - "$FILE" <<'PY'
+        import json, re, sys
+        data = json.load(open(sys.argv[1]))
+        texts = [b['text'] for m in data if m.get('type') == 'assistant'
+                 for b in m.get('message', {}).get('content', []) if b.get('type') == 'text']
+        if texts:
+            found = re.findall(r'RESULT: [a-z-]+(?::[0-9]+)?', texts[-1])
+            if found:
+                print(found[-1])
+        PY
+        )
         if [ -z "$LINE" ]; then
-          echo "::error::Agent ended without the mandatory RESULT line — treating the run as failed."
+          echo "::error::Agent's final message carries no RESULT line — treating the run as failed (contract violation)."
           exit 1
         fi
         echo "result=${LINE#RESULT: }" >> "$GITHUB_OUTPUT"
