@@ -108,6 +108,9 @@ Status colours are **tenant data**: a background + font colour pair per state, f
 | 11px | `text-xs` (12px); **11px is dropped** | badges, chips |
 | 16px / 18px / 20px headings | `text-base` / `text-lg` / `text-xl` | rare headings, KPI tiles (bespoke) |
 | weights 400 / 500 / 600 / 700 | `font-normal` / `font-medium` / `font-semibold` / `font-bold` | 600 = captions and titles; 500 = labels and buttons |
+| JetBrains Mono for prices (price-list redesign) | `tabular-nums` on `font-sans` (UI-TOK-009) | aligned figures in grids and totals |
+| DM Sans (vehicle outline), `'Segoe UI Menu Test'`, Open Sans, Arial, Verdana | **removed**: `--font-sans` only (UI-TOK-008) | local islands and leftovers |
+| (none) | `font-mono` (Tailwind default mono stack) | raw JSON / XML payloads, API keys, technical log lines only |
 
 ## 7. Density and sizes (D-04)
 

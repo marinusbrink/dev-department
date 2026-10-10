@@ -92,3 +92,28 @@ Use spacing steps 1, 2, 3, 4, 6 (4, 8, 12, 16, 24px):
 
 - **Check:** spacing classes outside {0.5, 1, 1.5, 2, 3, 4, 6} need a reason.
 - **Evidence:** inventory §1.6 (G3 code uses a 4px grid; legacy 5px grid dropped).
+
+### UI-TOK-008 · MUST · One font family: `--font-sans` (Geist)
+- **All UI text** uses the inherited `font-sans` (Geist Variable, from `@fontsource-variable/geist` in `index.css`).
+- **Feature code** never imports fonts (`@fontsource/*`, Google Fonts links, `@font-face`), never sets `font-family` / `fontFamily`, and never uses `font-[…]`.
+- **`font-mono`** is allowed only for raw technical content: JSON / XML payloads, API keys, log lines in technical screens.
+- **Check:** grep the diff for `@font-face`, `fonts.googleapis`, `@fontsource`, `font-family`, `fontFamily` and `font-\[`; `font-mono` only around payload or log text.
+- **Evidence:** inventory §1.5 (Poppins + the system stack + DM Sans + JetBrains Mono + a test font coexist, about 127 `font-family` declarations: the drift this prevents); D-03.
+
+```tsx
+// ✅
+<pre className="font-mono text-label">{payloadJson}</pre>
+// ❌
+<span style={{ fontFamily: "'JetBrains Mono'" }}>{f.amount(total)}</span>
+```
+
+### UI-TOK-009 · MUST · Numbers that are compared use tabular figures
+`tabular-nums` (fixed-width digits) applies to:
+- numeric, amount, date and date-time grid cells
+- totals blocks
+- numeric inputs
+- any column of figures in a summary
+
+Digits then line up vertically without a monospace font. The grid cells (`NumberCell`, `AmountCell`, `DateCell`, `DateTimeCell`), the totals block and `NumberInput` apply it themselves; feature code adds it only for figures it renders by hand.
+- **Check:** the library cells and the totals block have `tabular-nums`; hand-rendered columns of figures in the diff have it too.
+- **Evidence:** inventory §1.5 (the price-list redesign used JetBrains Mono so prices align: the intent, without the second font); UI-GRID-004, UI-GRID-015.

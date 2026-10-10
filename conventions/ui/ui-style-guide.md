@@ -199,6 +199,41 @@ The old app asked "Confirm / Are you sure? / Ok". Users clicked Ok without readi
 | `flag-*` | the 8 user flag colours | anything else |
 | `surface-page` / `surface-section` | page and toolbar background / form section cards | |
 
+## Typography
+
+**One typeface: Geist** (Geist Variable, installed from npm). It is used for everything: labels, data, numbers, titles.
+
+**Why not keep the old fonts?** Users of the old app never saw one consistent font:
+- Metronic chrome rendered in **Poppins**;
+- the screens they actually work in (Material form fields, dialogs and every ag-grid) rendered in the **operating system's font** (Segoe UI on Windows);
+- the redesigned islands added **DM Sans** and **JetBrains Mono**.
+
+Matching "the old font" would mean picking one of four. Geist is a neutral sans-serif in the same style as those system fonts, so text density stays close to what users see today. It was already the new app's choice (decision D-03).
+
+**The scale:** the old app had 70 different font sizes in practice, which clustered on a handful of steps. Those steps are kept:
+
+| Role | Size / weight | Token | Example |
+|---|---|---|---|
+| Body text, field values, buttons | 14px / 400 (buttons 500) | `text-sm` | Acme Transport BV |
+| Field labels, captions, hints, grid footer | 12px / 500 | `text-label` | Licence plate * |
+| Section caption in a dialog | 12px / 600, brand colour | `text-label font-semibold text-brand` | **Customer** |
+| Grid cells and headers | 13px | `--grid-font-size` | 12-ABC-3 |
+| Dialog title (in the brand bar) | 15px / 600 | `text-title font-semibold` | **Invoice 2026-000123** |
+| Rare headings (KPI tiles, empty-state titles) | 16 to 20px / 600 | `text-base` to `text-xl` | 1.284 orders |
+
+There is no 11px text. The old app's 11px badges become 12px, for legibility.
+
+**Aligned figures without a second font.** The price-list redesign switched to a monospace font so that prices line up in a column. The new app gets the same effect with **tabular figures** (`tabular-nums`): every digit takes the same width, in Geist itself.
+
+```
+proportional   1.111,10        tabular   1.111,10
+               9.999,90                  9.999,90   ← digits line up
+```
+
+Grid number, amount and date cells, totals blocks and numeric inputs do this automatically (rule UI-TOK-009).
+
+**Monospace** is reserved for raw technical content: JSON or XML payloads in API-message screens, API keys, technical log lines (UI-TOK-008).
+
 ## What this guide does not cover
 
 - **The shell:** header, app launcher, nav pane. It is built separately.
