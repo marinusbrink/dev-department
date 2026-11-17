@@ -19,7 +19,8 @@ Everything else is done by agents. Marinus keeps exactly three roles:
 
 | Path | Contents |
 |---|---|
-| `agents/` | Agent definitions (markdown + frontmatter): intake, architect, implementers, test engineer, reviewer, release manager, devops, retrospective, documentation |
+| `agents/` | Agent definitions (markdown + frontmatter): intake, architect, implementers, test engineer, reviewer, release manager, devops, retrospective, documentation, and the PO companion (the one role that runs in Marinus's own Claude Code session, §4.11) |
+| `scripts/` | Tools for the PO companion, e.g. `watch-pbi.sh` (follows one PBI through the pipeline) |
 | `workflows/` | Reusable GitHub Actions workflows the product repos call |
 | `conventions/` | CLAUDE.md building blocks: SaaS constitution, architecture, code, test, security, performance budgets |
 | `templates/` | PBI template, design doc template, retrospective template |

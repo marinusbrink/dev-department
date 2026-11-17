@@ -32,7 +32,7 @@ Core principles:
 |---|---|---|
 | Event-driven agents (issue → design, PR comment → fix) | **GitHub Actions** with `anthropics/claude-code-action` | The only mature event-driven integration. Runs on GitHub infra (not your machine); model calls go to Anthropic. |
 | Scheduled tasks (nightly audit, retrospective, digest) | **Claude Code cloud tasks** (Anthropic infra) or GitHub Actions `schedule` | Cloud tasks run on Anthropic infrastructure, even when everything on your side is off. |
-| Interactive work (you + Claude Code) | Local or Claude Code on the web | For the things you do yourself. |
+| Interactive work (you + Claude Code) | Local or Claude Code on the web | For the things you do yourself — since 2026-11-17 that is the PO companion (§4.11): shaping PBIs, watching the pipeline, local testing before gate 2. Development itself never runs here. |
 
 Practical consequence: the center of gravity is GitHub Actions. That satisfies the real requirement (nothing runs on own hardware, everything auditable) even though it is strictly GitHub infra with Anthropic models. Where Anthropic's cloud tasks suffice, we use those.
 
@@ -246,6 +246,16 @@ See §6 for the full design. Summarized: SLO-driven triage and diagnosis, synthe
 - Integrator documentation is not written but **derived**: OpenAPI is the source; the agent only writes the guides around it (authentication, webhooks, example flows) and keeps them consistent with the generated contract.
 
 **May:** write in `docs/`, trigger the screenshot and publication workflows. **May not:** change application code or API contracts; publish documentation of flagged features before activation.
+
+### 4.11 PO companion (PO decision 2026-11-17)
+
+**Role:** Marinus's interactive companion in his own Claude Code session in a product repo — the one role that runs on his machine, and it works only on *his* side of the gates. Every development task (solution architecture, code, tests, documentation) goes through the pipeline of §5; the companion makes that loop short for the human.
+
+**Method:** shapes the PBI with Marinus in chat and pre-checks it against the intake checklist (`agents/intake.md` is the single source) before filing it with `status:intake`; carries intake questions back to the chat and re-applies the label after the answers; summarises the design PR for gate 1 and posts his remarks as one review; watches the build (`scripts/watch-pbi.sh`); when the feature PR is gate-2-ready, checks it out in its own worktree, runs it locally with the feature flag on for the local test tenant, and turns his test findings into one gate-2 review that starts the fix loop.
+
+**Why it deviates from "nothing on own hardware":** it does no development work and holds no secrets beyond Marinus's own GitHub login; it only shortens the PBI-author and gate roles of §1. The §10 "spec agent" stays unbuilt: the companion helps write PBIs, intake still judges them.
+
+**May:** read the repo, issues and PRs; with Marinus's OK per post, create and edit the PBI, re-apply `status:intake`, submit reviews; check out PRs locally and run them. **May not:** write product code, tests, migrations or design docs; push to any branch the pipeline owns; approve or merge PRs; move an issue past a gate.
 
 ---
 
