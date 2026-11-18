@@ -7,6 +7,7 @@ These budgets (design §6, layer 0) are defaults for review: the architect state
 | Interaction class | Requirement | Enforcement |
 |---|---|---|
 | Interactive reads (grids, detail screens) | API p95 < 300 ms; screen interactive < 1 s | nightly load test (k6) per core endpoint with a budget; overrun = prioritized issue |
+| Analytical reads for AI tools (`query_metrics` in opentms-next) | API p95 < 1.5 s, warm, at the design's stated volume; hard timeout 2 s (PO decisions 2026-11-18, opentms-next design 75) | volume test in the deploy's performance gate and k6 threshold (`p(95)<1500`); overrun = prioritized issue |
 | Mutations (save, plan, accept) | API p95 < 500 ms; perceived latency ~0 via optimistic updates | same + reviewer check on optimistic update per design |
 | Heavy operations (route optimization, reporting, batch invoicing) | always asynchronous with progress indication; never block a request > 2 s | reviewer blocker on synchronous heavy calls |
 | Web frontend | Core Web Vitals: LCP < 2.5 s, INP < 200 ms; bundle-size budget per route in CI | CI failure on budget overrun |
